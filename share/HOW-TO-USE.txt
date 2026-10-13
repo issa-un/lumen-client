@@ -1,0 +1,16 @@
+SPEAR injector
+
+Needs
+- Minecraft 26.1.2 with Fabric Loader and Fabric API installed.
+- The official Minecraft Launcher (its Java is used); or JAVA_HOME set to a Java 25 JDK.
+
+Use
+1. Start Minecraft (Fabric 26.1.2) and wait for the main menu.
+2. Double-click Start.bat.
+3. Pick the Minecraft process and click Open GUI.
+4. In game, Numpad 8 opens the menu. Left-click a module to turn it on,
+   right-click it for its settings.
+
+Settings are saved in .minecraft\config\spear-injector.properties.
+A log of what the modules did is in .minecraft\logs\spear-injector.log.
+To switch it off, click Unload in the menu or in the injector window.

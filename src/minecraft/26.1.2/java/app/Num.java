@@ -1,0 +1,103 @@
+package app;
+
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * A number setting the menu shows as a slider: either a min-max delay in ms, where every
+ * use picks a random time in between (so no two combos have exactly the same timing), or a
+ * single value such as a chance in percent. Read from the render and network threads.
+ */
+final class Num {
+    final boolean range;
+    final int limit;
+    private final int step;
+    private final String unit;
+    private final int defaultLow;
+    private final int defaultHigh;
+    private volatile int low;
+    private volatile int high;
+
+    private Num(boolean range, int limit, int step, String unit, int low, int high) {
+        this.range = range;
+        this.limit = limit;
+        this.step = step;
+        this.unit = unit;
+        defaultLow = low;
+        defaultHigh = high;
+        set(low, high);
+    }
+
+    /** A delay picked at random between low and high ms each time, up to limit. */
+    static Num ms(int low, int high, int limit) {
+        return new Num(true, limit, 5, " ms", low, high);
+    }
+
+    /** A chance from 0 to 100%. */
+    static Num percent(int value) {
+        return new Num(false, 100, 1, "%", value, value);
+    }
+
+    int low() {
+        return low;
+    }
+
+    int high() {
+        return high;
+    }
+
+    /** Snaps both ends to the slider's steps; a single value keeps high equal to low. */
+    void set(int newLow, int newHigh) {
+        int l = snap(newLow);
+        int h = range ? snap(newHigh) : l;
+        low = Math.min(l, h);
+        high = Math.max(l, h);
+    }
+
+    /** Dragging the low knob past the high one pushes it along. */
+    void setLow(int value) {
+        int l = snap(value);
+        set(l, range ? Math.max(l, high) : l);
+    }
+
+    void setHigh(int value) {
+        int h = snap(value);
+        set(Math.min(low, h), h);
+    }
+
+    void reset() {
+        set(defaultLow, defaultHigh);
+    }
+
+    /** A delay for one use: anywhere from low to high. */
+    int pick() {
+        int l = low;
+        int h = high;
+        return h <= l ? l : ThreadLocalRandom.current().nextInt(l, h + 1);
+    }
+
+    /** For a chance: true that percent of the time. */
+    boolean roll() {
+        int percent = low;
+        return percent >= 100 || ThreadLocalRandom.current().nextInt(100) < percent;
+    }
+
+    /** No delay at all. */
+    boolean isZero() {
+        return high == 0;
+    }
+
+    String label() {
+        if (!range) {
+            return low + unit;
+        }
+        if (high == 0) {
+            return "Off";
+        }
+        return low == high ? low + unit : low + "-" + high + unit;
+    }
+
+    private int snap(int value) {
+        int clamped = Math.max(0, Math.min(limit, value));
+        return Math.min(limit, Math.round(clamped / (float) step) * step);
+    }
+}
