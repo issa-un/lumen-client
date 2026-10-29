@@ -23,7 +23,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
 
 final class ProcessPickerWindow {
-    private final JFrame frame = new JFrame("Minecraft GUI Injector");
+    private final JFrame frame = new JFrame("Uranium Injector");
     private final DefaultListModel<JavaProcess> processModel = new DefaultListModel<>();
     private final JList<JavaProcess> processList = new JList<>(processModel);
     private final JButton refreshButton = new JButton("Refresh");

@@ -73,7 +73,7 @@ final class WebTrap {
     static boolean activate(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
         if (!enabled || player == null || minecraft.gameMode == null || minecraft.level == null
-                || minecraft.screen != null) {
+                || Mc.screen(minecraft) != null) {
             return false;
         }
         if (!SpearSettings.combatAllowed(minecraft)) {
@@ -255,9 +255,8 @@ final class WebTrap {
         try {
             inventory.setSelectedSlot(slot);
             result = minecraft.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, click);
-            if (result instanceof InteractionResult.Success success
-                    && success.swingSource() == InteractionResult.SwingSource.CLIENT) {
-                player.swing(InteractionHand.MAIN_HAND);
+            if (Mc.swingsOnClient(result)) {
+                Mc.swing(player, InteractionHand.MAIN_HAND);
             }
         } finally {
             inventory.setSelectedSlot(previousSlot);

@@ -39,7 +39,7 @@ final class AutoGapple {
             continueEating(minecraft, player, now);
             return;
         }
-        if (!enabled || minecraft.screen != null || now < readyAtMs || player.isUsingItem()
+        if (!enabled || Mc.screen(minecraft) != null || now < readyAtMs || player.isUsingItem()
                 || player.getHealth() > HEALTH[healthIndex] || player.hasEffect(MobEffects.REGENERATION)
                 || !SpearSettings.combatAllowed(minecraft)) {
             return;
@@ -64,7 +64,7 @@ final class AutoGapple {
 
     private static void continueEating(Minecraft minecraft, LocalPlayer player, long now) {
         boolean eaten = player.getInventory().getItem(eatingSlot).getCount() < countBefore;
-        boolean interrupted = player.getInventory().getSelectedSlot() != eatingSlot || minecraft.screen != null;
+        boolean interrupted = player.getInventory().getSelectedSlot() != eatingSlot || Mc.screen(minecraft) != null;
         if (!eaten && !interrupted && now - startedMs < EAT_TIMEOUT_MS) {
             minecraft.options.keyUse.setDown(true);
             return;

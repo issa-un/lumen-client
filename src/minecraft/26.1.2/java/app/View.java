@@ -7,8 +7,9 @@ import net.minecraft.util.Mth;
 /**
  * Turns your real view (the camera) for Web Escape, MLG Water, Clutch and Web Trap: they
  * snap it to where they place, the game sends that view like any mouse movement, and once
- * they are done it snaps back to where you were looking. If you move the mouse while it is
- * turned, the view is yours from then on and is not turned back.
+ * they are done it turns back to where you were looking with a hand-like flick (see
+ * HumanAim), not a snap. If you move the mouse while it is turned or turning back, the view
+ * is yours from then on.
  */
 final class View {
     // Render thread only.
@@ -18,6 +19,8 @@ final class View {
     private static float setYaw;
     private static float setPitch;
     private static long releaseAtMs = -1;
+    private static final HumanAim BACK = new HumanAim();
+    private static boolean returning;
 
     private View() {}
 
@@ -28,6 +31,8 @@ final class View {
             savedPitch = player.getXRot();
             saved = true;
         }
+        BACK.stop();
+        returning = false;
         snap(player, yaw, pitch);
         releaseAtMs = -1;
     }
@@ -48,12 +53,23 @@ final class View {
         if (player == null || movedByYou(player)) {
             saved = false; // you took the view over
             releaseAtMs = -1;
+            BACK.stop();
+            returning = false;
             return;
         }
-        if (releaseAtMs >= 0 && System.nanoTime() / 1_000_000 >= releaseAtMs) {
-            snap(player, savedYaw, savedPitch);
-            saved = false;
+        if (!returning && releaseAtMs >= 0 && System.nanoTime() / 1_000_000 >= releaseAtMs) {
+            BACK.flickExact(Mth.wrapDegrees(savedYaw - player.getYRot()), savedPitch - player.getXRot());
+            returning = true;
             releaseAtMs = -1;
+        }
+        if (returning) {
+            boolean done = BACK.step(player);
+            setYaw = player.getYRot();
+            setPitch = player.getXRot();
+            if (done) {
+                saved = false;
+                returning = false;
+            }
         }
     }
 
@@ -78,6 +94,8 @@ final class View {
 
     /** Forgets the remembered view when this injection is unloaded. */
     static void reset() {
+        BACK.stop();
+        returning = false;
         saved = false;
         releaseAtMs = -1;
     }

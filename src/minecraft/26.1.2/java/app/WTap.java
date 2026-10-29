@@ -43,7 +43,7 @@ final class WTap {
     /** Your attack click: remember it if it lands on something living. */
     static void onAttackClick(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (enabled && !anyAttack && player != null && minecraft.screen == null && SpearSettings.combatAllowed(minecraft)
+        if (enabled && !anyAttack && player != null && Mc.screen(minecraft) == null && SpearSettings.combatAllowed(minecraft)
                 && minecraft.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity) {
             clickTick = player.tickCount;
             clickWasSprint = player.isSprinting();
@@ -61,7 +61,7 @@ final class WTap {
     /** An attack on something living caught by AttackHook, on the render thread. */
     static void onAnyAttack(Minecraft minecraft, boolean wasSprinting) {
         LocalPlayer player = minecraft.player;
-        if (enabled && anyAttack && player != null && minecraft.screen == null
+        if (enabled && anyAttack && player != null && Mc.screen(minecraft) == null
                 && SpearSettings.combatAllowed(minecraft)) {
             clickTick = player.tickCount;
             clickWasSprint = wasSprinting;
@@ -80,7 +80,7 @@ final class WTap {
         sprintingBeforeHit = player.isSprinting();
         long now = System.nanoTime() / 1_000_000;
         if (tapUntilMs >= 0) {
-            if (now >= tapUntilMs || minecraft.screen != null) {
+            if (now >= tapUntilMs || Mc.screen(minecraft) != null) {
                 restoreKeys(minecraft);
                 tapUntilMs = -1;
             } else {
@@ -96,7 +96,7 @@ final class WTap {
                 tapAtMs = now + REACTION.pick();
             }
         }
-        if (tapAtMs >= 0 && minecraft.screen != null) {
+        if (tapAtMs >= 0 && Mc.screen(minecraft) != null) {
             tapAtMs = -1;
         } else if (tapAtMs >= 0 && now >= tapAtMs) {
             tapAtMs = -1;
@@ -126,7 +126,7 @@ final class WTap {
         if (key.getType() == InputConstants.Type.MOUSE) {
             return GLFW.glfwGetMouseButton(minecraft.getWindow().handle(), key.getValue()) == GLFW.GLFW_PRESS;
         }
-        return key.getType() == InputConstants.Type.KEYSYM && InputConstants.isKeyDown(minecraft.getWindow(), key.getValue());
+        return key.getType() == Mc.keyboard() && Mc.isKeyDown(minecraft, key.getValue());
     }
 
     static boolean isEnabled() {

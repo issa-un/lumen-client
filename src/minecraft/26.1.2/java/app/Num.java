@@ -14,10 +14,17 @@ final class Num {
     private final String unit;
     private final int defaultLow;
     private final int defaultHigh;
+    // A pitch: the slider runs over raw tenths of a degree, PITCH_ZERO being level.
+    private final boolean pitch;
     private volatile int low;
     private volatile int high;
 
     private Num(boolean range, int limit, int step, String unit, int low, int high) {
+        this(range, limit, step, unit, low, high, false);
+    }
+
+    private Num(boolean range, int limit, int step, String unit, int low, int high, boolean pitch) {
+        this.pitch = pitch;
         this.range = range;
         this.limit = limit;
         this.step = step;
@@ -30,6 +37,40 @@ final class Num {
     /** A delay picked at random between low and high ms each time, up to limit. */
     static Num ms(int low, int high, int limit) {
         return new Num(true, limit, 5, " ms", low, high);
+    }
+
+    /** Clicks per second, picked at random between low and high each click, up to limit. */
+    static Num cps(int low, int high, int limit) {
+        return new Num(true, limit, 1, " CPS", low, high);
+    }
+
+    private static final int PITCH_ZERO = 300;
+
+    /**
+     * A view pitch range, picked at random between low and high each time, from 30 degrees up
+     * (negative, as the game counts it) to 30 down, in half-degree steps.
+     */
+    static Num pitchRange(double low, double high) {
+        return new Num(true, 2 * PITCH_ZERO, 5, "°", toRaw(low), toRaw(high), true);
+    }
+
+    /** For a pitch range: a pitch from low to high, in degrees. */
+    float pickPitch() {
+        return (pick() - PITCH_ZERO) / 10.0F;
+    }
+
+    /** For a pitch range: sets both ends, in degrees. */
+    void setPitches(double low, double high) {
+        set(toRaw(low), toRaw(high));
+    }
+
+    private static int toRaw(double degrees) {
+        return (int) Math.round(degrees * 10) + PITCH_ZERO;
+    }
+
+    private static String degrees(int raw) {
+        int tenths = raw - PITCH_ZERO;
+        return (tenths % 10 == 0 ? String.valueOf(tenths / 10) : String.valueOf(tenths / 10.0)) + "°";
     }
 
     /** A chance from 0 to 100%. */
@@ -87,6 +128,9 @@ final class Num {
     }
 
     String label() {
+        if (pitch) {
+            return low == high ? degrees(low) : degrees(low) + " to " + degrees(high);
+        }
         if (!range) {
             return low + unit;
         }

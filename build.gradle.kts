@@ -28,6 +28,8 @@ val minecraftLibraryFiles = System.getenv("APPDATA")?.let { appData ->
         "io/netty/netty-transport/4.2.7.Final/netty-transport-4.2.7.Final.jar",
         "io/netty/netty-common/4.2.7.Final/netty-common-4.2.7.Final.jar",
         "io/netty/netty-buffer/4.2.7.Final/netty-buffer-4.2.7.Final.jar",
+        // Hide other clients rewrites the HUD drawing class with the ASM Fabric Loader ships.
+        "org/ow2/asm/asm/9.10.1/asm-9.10.1.jar",
     ).map { File(appData, ".minecraft/libraries/$it") }
 } ?: emptyList()
 // The HUD registers through Fabric API, whose modules are nested jars inside the mod jar.
@@ -106,6 +108,8 @@ tasks.jar {
     manifest {
         attributes(
             "Agent-Class" to "app.$buildTag.MinecraftGuiAgent",
+            // Hide other clients adds a check to a class the game has already loaded.
+            "Can-Retransform-Classes" to "true",
             // The same jar opens the injector window, which then injects itself.
             "Main-Class" to "app.$buildTag.Main"
         )

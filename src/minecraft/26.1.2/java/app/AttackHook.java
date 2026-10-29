@@ -15,7 +15,6 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.HandlerNames;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 
@@ -28,8 +27,7 @@ import net.minecraft.world.entity.LivingEntity;
  * - Shield Break: the attack is held back and the shield break runs instead on the next
  *   frame, as a click would; if the break cannot start after all, the attack goes out.
  * - Mace Swap: the mace is selected for that one packet, the attack goes out and the slot
- *   goes back, in one write, so nothing is delayed or reordered. With any of its delays on,
- *   the attack is held back instead and goes out as the hit of the delayed swap.
+ *   goes back, in one write, so nothing is delayed or reordered.
  * - Auto Weapon: the weapon is selected right before the attack goes out, and stays (or,
  *   with a delay on, the attack is held back like Mace Swap's).
  * - W-Tap: notes the hit.
@@ -187,12 +185,6 @@ final class AttackHook {
         int mace = MaceSwap.maceForAnyAttack(minecraft, target, held);
         if (mace >= 0) {
             MACE_SWAPS.incrementAndGet();
-            if (MaceSwap.isDelayed()) {
-                // The delays need the attack held back; it goes out as the mace hit.
-                promise.trySuccess();
-                minecraft.execute(() -> MaceSwap.runFromAttack(minecraft, target, mace, attack));
-                return true;
-            }
             context.write(new ServerboundSetCarriedItemPacket(mace));
             context.write(attack, promise);
             context.write(new ServerboundSetCarriedItemPacket(held));
@@ -237,7 +229,7 @@ final class AttackHook {
         @Override
         public void write(ChannelHandlerContext context, Object message, ChannelPromise promise)
                 throws Exception {
-            if (message instanceof ServerboundSwingPacket) {
+            if (Mc.isSwingPacket(message)) {
                 SWINGS.incrementAndGet();
             } else if (message instanceof ServerboundAttackPacket attack) {
                 ATTACKS.incrementAndGet();

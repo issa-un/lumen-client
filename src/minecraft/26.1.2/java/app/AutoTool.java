@@ -32,7 +32,7 @@ final class AutoTool {
             return;
         }
         long now = System.nanoTime() / 1_000_000;
-        boolean mining = enabled && minecraft.screen == null && minecraft.gameMode.isDestroying()
+        boolean mining = enabled && Mc.screen(minecraft) == null && minecraft.gameMode.isDestroying()
                 && minecraft.hitResult instanceof BlockHitResult;
         if (mining) {
             lastMiningMs = now;

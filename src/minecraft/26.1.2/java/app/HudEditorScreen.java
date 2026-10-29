@@ -8,7 +8,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * Drag the Speed HUD, look angle and landing line where you want them. Each shows as a box
+ * Drag the Speed HUD, look angle, landing line and Combat stats where you want them. Each shows as a box
  * at its current spot; drag a box to move it. Reset puts everything back, and Done (or
  * Escape) saves and returns to the menu. Positions are offsets from the default spots, so
  * the Speed HUD's Low/High setting still applies underneath.
@@ -16,7 +16,8 @@ import net.minecraft.network.chat.Component;
 public final class HudEditorScreen extends Screen {
     // Each piece's box around its position: left, top, right, bottom. The speed ring's box
     // covers the numbers and warnings above it.
-    private static final int[][] BOXES = {{-52, -48, 52, 17}, {-2, -2, 34, 10}, {-58, -2, 58, 10}};
+    private static final int[][] BOXES = {{-52, -48, 52, 17}, {-2, -2, 34, 10}, {-58, -2, 58, 10},
+            {0, 0, CombatStats.WIDTH, CombatStats.height(13)}};
     private static final int BOX_COLOR = 0x6034A0C0;
     private static final int BOX_DRAGGED_COLOR = 0x905EE0C1;
     private static final int EDGE_COLOR = 0xFF5EE0C1;
@@ -52,7 +53,7 @@ public final class HudEditorScreen extends Screen {
     @Override
     public void onClose() {
         SpearSettings.save(Minecraft.getInstance());
-        Minecraft.getInstance().setScreen(new ClickGuiScreen());
+        Mc.setScreen(Minecraft.getInstance(), new ClickGuiScreen());
     }
 
     @Override

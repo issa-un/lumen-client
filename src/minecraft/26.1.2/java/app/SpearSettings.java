@@ -22,7 +22,7 @@ import net.minecraft.client.multiplayer.ServerData;
  *
  * Per server: a server on the combat-off list keeps every module that acts for you (Spear
  * Dash, Shield Break, Mace Swap, Auto Totem, Auto Weapon, Reach Swap, Quick Throw, Web Escape, Web Trap,
- * MLG Water, W-Tap, Jump Reset, Auto Gapple, Clutch, Edge Sneak, Chest Stealer, Auto Armor)
+ * MLG Water, W-Tap, Jump Reset, Auto Gapple)
  * from firing there; the Utility modules work everywhere. A server with its own settings keeps its module settings under
  * "server.<address>." keys, and anywhere else uses the plain keys (your defaults). The HUD
  * layout, toggle keys, menu position and open tab are shared by every server.
@@ -76,7 +76,7 @@ final class SpearSettings {
     }
 
     private static void loadShared(Properties file) {
-        // New keys for the Lumen window, so it starts centred rather than where the old panel was.
+        // New keys for the Uranium window, so it starts centred rather than where the old panel was.
         ClickGuiScreen.setPosition(
                 integer(file, "gui.window.x", ClickGuiScreen.panelX()),
                 integer(file, "gui.window.y", ClickGuiScreen.panelY()));
@@ -139,7 +139,6 @@ final class SpearSettings {
         ShieldBreak.setOnAttackClick(p.bool("shield.onClick", ShieldBreak.isOnAttackClick()));
         ShieldBreak.setAnyAttack(p.bool("shield.anyAttack", ShieldBreak.isAnyAttack()));
         ShieldBreak.setMaceFollowUp(p.bool("shield.mace", ShieldBreak.isMaceFollowUp()));
-        ShieldBreak.setRange(p.integer("shield.range", ShieldBreak.range()));
         p.num("shield.chance", ShieldBreak.CHANCE);
         p.num("shield.swapDelay", ShieldBreak.SWAP_DELAY);
         p.num("shield.hitDelay", ShieldBreak.HIT_DELAY);
@@ -148,13 +147,6 @@ final class SpearSettings {
         p.num("shield.swapBack", ShieldBreak.SWAP_BACK);
         MaceSwap.setEnabled(p.bool("maceSwap.enabled", MaceSwap.isEnabled()));
         // A new key, so older saves (where only a Breach mace swapped on the ground) start on Any mace.
-        MaceSwap.setGroundMode(p.integer("maceSwap.groundMode", MaceSwap.groundMode()));
-        MaceSwap.setFallingDensity(p.bool("maceSwap.fallingDensity", MaceSwap.isFallingDensity()));
-        MaceSwap.setAnyAttack(p.bool("maceSwap.anyAttack", MaceSwap.isAnyAttack()));
-        p.num("maceSwap.chance", MaceSwap.CHANCE);
-        p.num("maceSwap.swapDelay", MaceSwap.SWAP_DELAY);
-        p.num("maceSwap.hitDelay", MaceSwap.HIT_DELAY);
-        p.num("maceSwap.swapBack", MaceSwap.SWAP_BACK);
         WebEscape.setEnabled(p.bool("webEscape.enabled", WebEscape.isEnabled()));
         WebEscape.setPickUp(p.bool("webEscape.pickUp", WebEscape.isPickUp()));
         WebEscape.setOnFire(p.bool("webEscape.onFire", WebEscape.isOnFire()));
@@ -162,10 +154,6 @@ final class SpearSettings {
         WebTrap.setBinding(p.integer("webTrap.key", WebTrap.keyCode()),
                 p.integer("webTrap.mouse", WebTrap.mouseButton()));
         WebTrap.setDrain(p.bool("webTrap.drain", WebTrap.isDrain()));
-        Clutch.setEnabled(p.bool("clutch.enabled", Clutch.isEnabled()));
-        Clutch.setWhen(p.integer("clutch.when", Clutch.when()));
-        EdgeSneak.setEnabled(p.bool("edgeSneak.enabled", EdgeSneak.isEnabled()));
-        EdgeSneak.setOnlyWithBlocks(p.bool("edgeSneak.onlyBlocks", EdgeSneak.isOnlyWithBlocks()));
         MlgWater.setEnabled(p.bool("mlg.enabled", MlgWater.isEnabled()));
         AutoTotem.setEnabled(p.bool("autoTotem.enabled", AutoTotem.isEnabled()));
         AutoTotem.setMode(p.integer("autoTotem.mode", AutoTotem.mode()));
@@ -181,11 +169,6 @@ final class SpearSettings {
         p.num("autoWeapon.hitDelay", AutoWeapon.HIT_DELAY);
         AutoGapple.setEnabled(p.bool("autoGapple.enabled", AutoGapple.isEnabled()));
         AutoGapple.setHealthIndex(p.integer("autoGapple.health", AutoGapple.healthIndex()));
-        ChestStealer.setEnabled(p.bool("chestStealer.enabled", ChestStealer.isEnabled()));
-        ChestStealer.setDelayMs(p.integer("chestStealer.delayMs", ChestStealer.delayMs()));
-        ChestStealer.setCloseWhenDone(p.bool("chestStealer.close", ChestStealer.isCloseWhenDone()));
-        AutoArmor.setEnabled(p.bool("autoArmor.enabled", AutoArmor.isEnabled()));
-        AutoArmor.setFromHotbar(p.bool("autoArmor.hotbar", AutoArmor.isFromHotbar()));
         AutoTool.setEnabled(p.bool("autoTool.enabled", AutoTool.isEnabled()));
         AutoTool.setSwapBack(p.bool("autoTool.swapBack", AutoTool.isSwapBack()));
         Utilities.setAutoSprint(p.bool("util.autoSprint", Utilities.isAutoSprint()));
@@ -199,6 +182,8 @@ final class SpearSettings {
         Utilities.setAutoWalk(p.bool("util.autoWalk", Utilities.isAutoWalk()));
         Utilities.setClearWeather(p.bool("util.clearWeather", Utilities.isClearWeather()));
         Utilities.setHitSound(p.bool("util.hitSound", Utilities.isHitSound()));
+        HudFilter.setHiddenSetting(p.string("util.hideOtherClients.sources", HudFilter.hiddenSetting()));
+        HudFilter.setEnabled(p.bool("util.hideOtherClients", HudFilter.isEnabled()));
         Utilities.setMiddleClickFriend(p.bool("util.middleClickFriend", Utilities.isMiddleClickFriend()));
         QuickThrow.setEnabled(p.bool("quickThrow.enabled", QuickThrow.isEnabled()));
         QuickThrow.setItem(p.integer("quickThrow.item", QuickThrow.item()));
@@ -207,6 +192,13 @@ final class SpearSettings {
         p.num("quickThrow.swapDelay", QuickThrow.SWAP_DELAY);
         p.num("quickThrow.throwDelay", QuickThrow.THROW_DELAY);
         p.num("quickThrow.swapBack", QuickThrow.SWAP_BACK);
+        PearlCatch.setEnabled(p.bool("pearlCatch.enabled", PearlCatch.isEnabled()));
+        PearlCatch.setOnRightClick(p.bool("pearlCatch.onRightClick", PearlCatch.isOnRightClick()));
+        Hit.setEnabled(p.bool("hit.enabled", Hit.isEnabled()));
+        p.num("hit.chance", Hit.CHANCE);
+        PearlCatch.setTiming(p.integer("pearlCatch.timing", PearlCatch.timing()));
+        PearlCatch.setBinding(p.integer("pearlCatch.key", PearlCatch.keyCode()),
+                p.integer("pearlCatch.mouse", PearlCatch.mouseButton()));
         ChestSwap.setEnabled(p.bool("chestSwap.enabled", ChestSwap.isEnabled()));
         ChestSwap.setBinding(p.integer("chestSwap.key", ChestSwap.keyCode()),
                 p.integer("chestSwap.mouse", ChestSwap.mouseButton()));
@@ -241,6 +233,7 @@ final class SpearSettings {
         VelocityHud.setIgnoreTeam(p.bool("radar.ignoreTeam", VelocityHud.isIgnoreTeam()));
         VelocityHud.setFriends(Arrays.asList(p.string("radar.friends", "").split(",")));
         VelocityHud.setLandingOn(p.bool("landing.on", VelocityHud.isLandingOn()));
+        CombatStats.setOn(p.bool("combatStats.on", CombatStats.isOn()));
     }
 
     private static void saveModules(Properties file, String prefix) {
@@ -262,7 +255,6 @@ final class SpearSettings {
         put(file, prefix, "shield.onClick", ShieldBreak.isOnAttackClick());
         put(file, prefix, "shield.anyAttack", ShieldBreak.isAnyAttack());
         put(file, prefix, "shield.mace", ShieldBreak.isMaceFollowUp());
-        put(file, prefix, "shield.range", ShieldBreak.range());
         putNum(file, prefix, "shield.chance", ShieldBreak.CHANCE);
         putNum(file, prefix, "shield.swapDelay", ShieldBreak.SWAP_DELAY);
         putNum(file, prefix, "shield.hitDelay", ShieldBreak.HIT_DELAY);
@@ -270,13 +262,6 @@ final class SpearSettings {
         putNum(file, prefix, "shield.axeToMace", ShieldBreak.AXE_TO_MACE);
         putNum(file, prefix, "shield.swapBack", ShieldBreak.SWAP_BACK);
         put(file, prefix, "maceSwap.enabled", MaceSwap.isEnabled());
-        put(file, prefix, "maceSwap.groundMode", MaceSwap.groundMode());
-        put(file, prefix, "maceSwap.fallingDensity", MaceSwap.isFallingDensity());
-        put(file, prefix, "maceSwap.anyAttack", MaceSwap.isAnyAttack());
-        putNum(file, prefix, "maceSwap.chance", MaceSwap.CHANCE);
-        putNum(file, prefix, "maceSwap.swapDelay", MaceSwap.SWAP_DELAY);
-        putNum(file, prefix, "maceSwap.hitDelay", MaceSwap.HIT_DELAY);
-        putNum(file, prefix, "maceSwap.swapBack", MaceSwap.SWAP_BACK);
         put(file, prefix, "webEscape.enabled", WebEscape.isEnabled());
         put(file, prefix, "webEscape.pickUp", WebEscape.isPickUp());
         put(file, prefix, "webEscape.onFire", WebEscape.isOnFire());
@@ -284,10 +269,6 @@ final class SpearSettings {
         put(file, prefix, "webTrap.key", WebTrap.keyCode());
         put(file, prefix, "webTrap.mouse", WebTrap.mouseButton());
         put(file, prefix, "webTrap.drain", WebTrap.isDrain());
-        put(file, prefix, "clutch.enabled", Clutch.isEnabled());
-        put(file, prefix, "clutch.when", Clutch.when());
-        put(file, prefix, "edgeSneak.enabled", EdgeSneak.isEnabled());
-        put(file, prefix, "edgeSneak.onlyBlocks", EdgeSneak.isOnlyWithBlocks());
         put(file, prefix, "mlg.enabled", MlgWater.isEnabled());
         put(file, prefix, "autoTotem.enabled", AutoTotem.isEnabled());
         put(file, prefix, "autoTotem.mode", AutoTotem.mode());
@@ -303,11 +284,6 @@ final class SpearSettings {
         putNum(file, prefix, "autoWeapon.hitDelay", AutoWeapon.HIT_DELAY);
         put(file, prefix, "autoGapple.enabled", AutoGapple.isEnabled());
         put(file, prefix, "autoGapple.health", AutoGapple.healthIndex());
-        put(file, prefix, "chestStealer.enabled", ChestStealer.isEnabled());
-        put(file, prefix, "chestStealer.delayMs", ChestStealer.delayMs());
-        put(file, prefix, "chestStealer.close", ChestStealer.isCloseWhenDone());
-        put(file, prefix, "autoArmor.enabled", AutoArmor.isEnabled());
-        put(file, prefix, "autoArmor.hotbar", AutoArmor.isFromHotbar());
         put(file, prefix, "autoTool.enabled", AutoTool.isEnabled());
         put(file, prefix, "autoTool.swapBack", AutoTool.isSwapBack());
         put(file, prefix, "util.autoSprint", Utilities.isAutoSprint());
@@ -321,6 +297,8 @@ final class SpearSettings {
         put(file, prefix, "util.autoWalk", Utilities.isAutoWalk());
         put(file, prefix, "util.clearWeather", Utilities.isClearWeather());
         put(file, prefix, "util.hitSound", Utilities.isHitSound());
+        put(file, prefix, "util.hideOtherClients", HudFilter.isEnabled());
+        put(file, prefix, "util.hideOtherClients.sources", HudFilter.hiddenSetting());
         put(file, prefix, "util.middleClickFriend", Utilities.isMiddleClickFriend());
         put(file, prefix, "quickThrow.enabled", QuickThrow.isEnabled());
         put(file, prefix, "quickThrow.item", QuickThrow.item());
@@ -329,6 +307,13 @@ final class SpearSettings {
         putNum(file, prefix, "quickThrow.swapDelay", QuickThrow.SWAP_DELAY);
         putNum(file, prefix, "quickThrow.throwDelay", QuickThrow.THROW_DELAY);
         putNum(file, prefix, "quickThrow.swapBack", QuickThrow.SWAP_BACK);
+        put(file, prefix, "pearlCatch.enabled", PearlCatch.isEnabled());
+        put(file, prefix, "pearlCatch.onRightClick", PearlCatch.isOnRightClick());
+        put(file, prefix, "hit.enabled", Hit.isEnabled());
+        putNum(file, prefix, "hit.chance", Hit.CHANCE);
+        put(file, prefix, "pearlCatch.timing", PearlCatch.timing());
+        put(file, prefix, "pearlCatch.key", PearlCatch.keyCode());
+        put(file, prefix, "pearlCatch.mouse", PearlCatch.mouseButton());
         put(file, prefix, "chestSwap.enabled", ChestSwap.isEnabled());
         put(file, prefix, "chestSwap.key", ChestSwap.keyCode());
         put(file, prefix, "chestSwap.mouse", ChestSwap.mouseButton());
@@ -357,6 +342,7 @@ final class SpearSettings {
         put(file, prefix, "radar.ignoreTeam", VelocityHud.isIgnoreTeam());
         put(file, prefix, "radar.friends", String.join(",", VelocityHud.friends()));
         put(file, prefix, "landing.on", VelocityHud.isLandingOn());
+        put(file, prefix, "combatStats.on", CombatStats.isOn());
     }
 
     /**

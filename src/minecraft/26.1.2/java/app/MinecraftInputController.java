@@ -115,7 +115,7 @@ final class MinecraftInputController {
         try {
             if (ownScrollCallback == null) {
                 ownScrollCallback = GLFWScrollCallback.create((handle, xOffset, yOffset) -> {
-                    if (active && minecraft.screen == null) {
+                    if (active && Mc.screen(minecraft) == null) {
                         userPickedSlot = true;
                     }
                     if (previousScrollCallback != null) {
@@ -143,6 +143,7 @@ final class MinecraftInputController {
         active = false;
         guardSpearSlot = -1;
         AttackHook.uninstall();
+        HudFilter.uninstall();
         long window = minecraft.getWindow().handle();
         if (ownKeyCallback != null && unhook(window, ownKeyCallback,
                 previousKeyCallback, GLFW::nglfwSetKeyCallback)) {
@@ -161,30 +162,29 @@ final class MinecraftInputController {
         }
         MinecraftSpearDash.reset(minecraft);
         ShieldBreak.reset(minecraft);
-        MaceSwap.reset(minecraft);
+        MaceSwap.reset();
+        MaceLog.reset();
+        Hit.reset();
         WebEscape.reset();
         WebTrap.reset();
         MlgWater.reset();
-        Clutch.reset();
-        EdgeSneak.reset(minecraft);
         View.reset();
         AutoTotem.reset(minecraft);
         AutoWeapon.reset(minecraft);
         ReachSwap.reset(minecraft);
         AutoGapple.reset(minecraft);
-        ChestStealer.reset();
-        AutoArmor.reset();
         AutoTool.reset();
         Utilities.reset(minecraft);
         QuickThrow.reset(minecraft);
+        PearlCatch.reset(minecraft);
         ChestSwap.reset(minecraft);
         AutoEat.reset(minecraft);
         AutoFish.reset();
         WTap.reset(minecraft);
         JumpReset.reset(minecraft);
         VelocityHud.uninstall();
-        if (minecraft.screen instanceof ClickGuiScreen) {
-            minecraft.setScreen(null);
+        if (Mc.screen(minecraft) instanceof ClickGuiScreen) {
+            Mc.setScreen(minecraft, null);
         }
         scheduler.shutdown();
         INSTALLED.set(false);
@@ -242,12 +242,19 @@ final class MinecraftInputController {
                     && QuickThrow.activate(minecraft)) {
                 consumed = true;
             }
+            if (!consumed && PearlCatch.mouseButton() < 0 && key >= 0 && key == PearlCatch.keyCode()
+                    && PearlCatch.activate(minecraft)) {
+                consumed = true;
+            }
+            if (!consumed && minecraft.options.keyUse.matches(event) && PearlCatch.onUseClick(minecraft)) {
+                consumed = true;
+            }
             if (!consumed && ChestSwap.mouseButton() < 0 && key >= 0 && key == ChestSwap.keyCode()
                     && ChestSwap.activate(minecraft)) {
                 consumed = true;
             }
             // A hotbar key the game will act on is your own pick; the swap-back watch leaves it.
-            if (!consumed && minecraft.screen == null && isHotbarKey(minecraft, event)) {
+            if (!consumed && Mc.screen(minecraft) == null && isHotbarKey(minecraft, event)) {
                 userPickedSlot = true;
             }
             return consumed;
@@ -276,13 +283,19 @@ final class MinecraftInputController {
             if (!consumed && button == QuickThrow.mouseButton() && QuickThrow.activate(minecraft)) {
                 consumed = true;
             }
+            if (!consumed && button == PearlCatch.mouseButton() && PearlCatch.activate(minecraft)) {
+                consumed = true;
+            }
+            if (!consumed && minecraft.options.keyUse.matchesMouse(event) && PearlCatch.onUseClick(minecraft)) {
+                consumed = true;
+            }
             if (!consumed && button == ChestSwap.mouseButton() && ChestSwap.activate(minecraft)) {
                 consumed = true;
             }
             if (!consumed && button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && Utilities.middleClick(minecraft)) {
                 consumed = true;
             }
-            if (!consumed && minecraft.screen == null && isHotbarButton(minecraft, event)) {
+            if (!consumed && Mc.screen(minecraft) == null && isHotbarButton(minecraft, event)) {
                 userPickedSlot = true;
             }
             return consumed;
@@ -293,7 +306,7 @@ final class MinecraftInputController {
 
     /** A HUD module's toggle key, outside menus; saved like a menu change. */
     private static boolean toggleHudModule(Minecraft minecraft, int module) {
-        if (module < 0 || minecraft.screen != null) {
+        if (module < 0 || Mc.screen(minecraft) != null) {
             return false;
         }
         VelocityHud.toggleModule(module);
@@ -314,12 +327,11 @@ final class MinecraftInputController {
     private static boolean attackClick(Minecraft minecraft) {
         WTap.onAttackClick(minecraft);
         Utilities.onAttackClick(minecraft);
-        return ShieldBreak.handleAttackClick(minecraft) || MaceSwap.handleAttackClick(minecraft)
-                || ReachSwap.handleAttackClick(minecraft) || AutoWeapon.onAttackClick(minecraft);
+        return ShieldBreak.handleAttackClick(minecraft) || ReachSwap.handleAttackClick(minecraft) || AutoWeapon.onAttackClick(minecraft);
     }
 
     private static boolean shieldBreak(Minecraft minecraft) {
-        return minecraft.screen == null && ShieldBreak.activate(minecraft);
+        return Mc.screen(minecraft) == null && ShieldBreak.activate(minecraft);
     }
 
     private static boolean isHotbarButton(Minecraft minecraft, MouseButtonEvent event) {
@@ -345,18 +357,18 @@ final class MinecraftInputController {
      * in chat or a sign never swaps that screen for the menu.
      */
     private static void toggleGui(Minecraft minecraft) {
-        if (minecraft.screen != null && !(minecraft.screen instanceof ClickGuiScreen)
-                && !(minecraft.screen instanceof HudEditorScreen)) {
+        if (Mc.screen(minecraft) != null && !(Mc.screen(minecraft) instanceof ClickGuiScreen)
+                && !(Mc.screen(minecraft) instanceof HudEditorScreen)) {
             return;
         }
-        minecraft.setScreen(minecraft.screen instanceof ClickGuiScreen
+        Mc.setScreen(minecraft, Mc.screen(minecraft) instanceof ClickGuiScreen
                 ? null
                 : new ClickGuiScreen());
     }
 
     /** True if a dash went out (or is levelling first). */
     private static boolean dash(Minecraft minecraft) {
-        return minecraft.screen == null && MinecraftSpearDash.hasLungeSpearInHotbar(minecraft)
+        return Mc.screen(minecraft) == null && MinecraftSpearDash.hasLungeSpearInHotbar(minecraft)
                 && MinecraftSpearDash.activate(minecraft);
     }
 
@@ -415,21 +427,19 @@ final class MinecraftInputController {
         enforceSwitchBack(minecraft);
         MinecraftSpearDash.updateDash(minecraft, true);
         ShieldBreak.update(minecraft);
-        MaceSwap.update(minecraft);
         AutoWeapon.update(minecraft);
         ReachSwap.update(minecraft);
         QuickThrow.update(minecraft);
+        PearlCatch.update(minecraft);
+        MaceLog.update(minecraft);
+        Hit.update(minecraft);
         ChestSwap.update(minecraft);
         WebEscape.update(minecraft);
-        Clutch.update(minecraft);
-        EdgeSneak.update(minecraft);
         MlgWater.update(minecraft);
         WTap.update(minecraft);
         JumpReset.update(minecraft);
         AutoTotem.update(minecraft);
         AutoGapple.update(minecraft);
-        ChestStealer.update(minecraft);
-        AutoArmor.update(minecraft);
         AutoTool.update(minecraft);
         Utilities.update(minecraft);
         AutoEat.update(minecraft);
@@ -438,7 +448,7 @@ final class MinecraftInputController {
 
         // Polling is only the fallback for when the event listeners could not be installed.
         if (!keyEventsInstalled) {
-            boolean numpad8Down = InputConstants.isKeyDown(minecraft.getWindow(), NUMPAD_8_KEY);
+            boolean numpad8Down = Mc.isKeyDown(minecraft, NUMPAD_8_KEY);
             if (numpad8Down && !numpad8WasDown) {
                 toggleGui(minecraft);
             }
@@ -529,7 +539,7 @@ final class MinecraftInputController {
 
     private static boolean isBindingDown(Minecraft minecraft, int keyCode, int mouseButton) {
         if (mouseButton < 0) {
-            return InputConstants.isKeyDown(minecraft.getWindow(), keyCode);
+            return Mc.isKeyDown(minecraft, keyCode);
         }
         return GLFW.glfwGetMouseButton(minecraft.getWindow().handle(), mouseButton)
                 == GLFW.GLFW_PRESS;

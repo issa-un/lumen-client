@@ -46,7 +46,7 @@ final class MlgWater {
             scoopAfterLanding(minecraft, player, now);
             return;
         }
-        if (!enabled || minecraft.screen != null || !SpearSettings.combatAllowed(minecraft)
+        if (!enabled || Mc.screen(minecraft) != null || !SpearSettings.combatAllowed(minecraft)
                 || !BucketUse.waterWorks(minecraft)) {
             return;
         }

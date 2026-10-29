@@ -1,11 +1,12 @@
 SPEAR injector
 
 Needs
-- Minecraft 26.1.2 with Fabric Loader and Fabric API installed.
+- Minecraft 26.1.2, 26.2 or 26.3 with Fabric Loader and Fabric API installed
+  (the same file works on all three; versions before 26.1 are not supported).
 - The official Minecraft Launcher (its Java is used); or JAVA_HOME set to a Java 25 JDK.
 
 Use
-1. Start Minecraft (Fabric 26.1.2) and wait for the main menu.
+1. Start Minecraft (Fabric 26.1.2, 26.2 or 26.3) and wait for the main menu.
 2. Double-click Start.bat.
 3. Pick the Minecraft process and click Open GUI.
 4. In game, Numpad 8 opens the menu. Left-click a module to turn it on,
@@ -14,3 +15,9 @@ Use
 Settings are saved in .minecraft\config\spear-injector.properties.
 A log of what the modules did is in .minecraft\logs\spear-injector.log.
 To switch it off, click Unload in the menu or in the injector window.
+
+Notes
+- Without Fabric API the modules still work; only the HUD tab (speed ring,
+  radar, landing) needs it.
+- Reach Swap uses a trick Mojang removed in 26.2, so on 26.2 and 26.3 it
+  does nothing useful.

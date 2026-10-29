@@ -58,7 +58,7 @@ final class ReachSwap {
     /** Your attack click: true if it became a spear jab, so the game must not also swing. */
     static boolean handleAttackClick(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || player == null || minecraft.gameMode == null || minecraft.screen != null
+        if (!enabled || player == null || minecraft.gameMode == null || Mc.screen(minecraft) != null
                 || !SpearSettings.combatAllowed(minecraft) || player.isUsingItem()) {
             return false;
         }
@@ -82,8 +82,8 @@ final class ReachSwap {
             } else {
                 watch(target, weapon);
                 // Sends the spear's slot, then the jab, back to back.
-                minecraft.gameMode.piercingAttack(spear.get(DataComponents.PIERCING_WEAPON));
-                player.swing(InteractionHand.MAIN_HAND);
+                Mc.piercingAttack(minecraft.gameMode, spear, spear.get(DataComponents.PIERCING_WEAPON));
+                Mc.swingAttack(player, InteractionHand.MAIN_HAND);
                 jabbed = true;
             }
         } finally {
@@ -130,7 +130,7 @@ final class ReachSwap {
             switchedTo = -1; // you picked a slot yourself
             return;
         }
-        if (minecraft.screen != null) {
+        if (Mc.screen(minecraft) != null) {
             return;
         }
         ItemStack spear = player.getInventory().getItem(switchedTo);

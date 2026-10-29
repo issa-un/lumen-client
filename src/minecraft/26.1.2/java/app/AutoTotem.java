@@ -59,9 +59,9 @@ final class AutoTotem {
         if (now < reactAtMs || now - lastSwapMs < RETRY_MS) {
             return;
         }
-        if (minecraft.screen instanceof InventoryScreen screen) {
+        if (Mc.screen(minecraft) instanceof InventoryScreen screen) {
             fromInventory(minecraft, player, screen.getMenu(), now);
-        } else if (minecraft.screen == null) {
+        } else if (Mc.screen(minecraft) == null) {
             fromHotbar(minecraft, player, now);
         }
     }

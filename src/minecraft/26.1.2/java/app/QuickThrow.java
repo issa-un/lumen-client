@@ -32,7 +32,7 @@ final class QuickThrow {
     /** Runs from its bind; true if something was thrown, so the press is used up. */
     static boolean activate(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || player == null || minecraft.gameMode == null || minecraft.screen != null) {
+        if (!enabled || player == null || minecraft.gameMode == null || Mc.screen(minecraft) != null) {
             return false;
         }
         if (!SpearSettings.combatAllowed(minecraft)) {
@@ -58,9 +58,8 @@ final class QuickThrow {
                 return false;
             }
             InteractionResult result = game.gameMode.useItem(thrower, InteractionHand.MAIN_HAND);
-            if (result instanceof InteractionResult.Success success
-                    && success.swingSource() == InteractionResult.SwingSource.CLIENT) {
-                thrower.swing(InteractionHand.MAIN_HAND);
+            if (Mc.swingsOnClient(result)) {
+                Mc.swing(thrower, InteractionHand.MAIN_HAND);
             }
             return result.consumesAction();
         }, (game, thrown, from, used) -> {

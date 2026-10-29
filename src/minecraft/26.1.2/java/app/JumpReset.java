@@ -26,7 +26,7 @@ final class JumpReset {
             return;
         }
         if (jumpUntilTick >= 0) {
-            if (player.tickCount >= jumpUntilTick || minecraft.screen != null) {
+            if (player.tickCount >= jumpUntilTick || Mc.screen(minecraft) != null) {
                 minecraft.options.keyJump.setDown(WTap.physicallyDown(minecraft, minecraft.options.keyJump));
                 jumpUntilTick = -1;
             } else {
@@ -36,7 +36,7 @@ final class JumpReset {
         }
         boolean newHit = player.hurtTime > lastHurtTime;
         lastHurtTime = player.hurtTime;
-        if (!enabled || !newHit || !player.onGround() || player.isInWater() || minecraft.screen != null
+        if (!enabled || !newHit || !player.onGround() || player.isInWater() || Mc.screen(minecraft) != null
                 || (onlyWhileSprinting && !player.isSprinting()) || !SpearSettings.combatAllowed(minecraft)) {
             return;
         }

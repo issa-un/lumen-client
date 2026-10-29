@@ -24,7 +24,7 @@ final class AutoFish {
     /** Called from the input loop. */
     static void update(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || player == null || minecraft.gameMode == null || minecraft.screen != null
+        if (!enabled || player == null || minecraft.gameMode == null || Mc.screen(minecraft) != null
                 || !player.getMainHandItem().is(Items.FISHING_ROD)) {
             recastAtMs = -1;
             return;
@@ -33,12 +33,12 @@ final class AutoFish {
         FishingHook hook = player.fishing;
         if (hook != null && recastAtMs < 0 && biting(hook)) {
             minecraft.gameMode.useItem(player, InteractionHand.MAIN_HAND);
-            player.swing(InteractionHand.MAIN_HAND);
+            Mc.swing(player, InteractionHand.MAIN_HAND);
             recastAtMs = now + RECAST_MS;
             SpearLog.log("auto fish: reeled in");
         } else if (hook == null && recastAtMs >= 0 && now >= recastAtMs) {
             minecraft.gameMode.useItem(player, InteractionHand.MAIN_HAND);
-            player.swing(InteractionHand.MAIN_HAND);
+            Mc.swing(player, InteractionHand.MAIN_HAND);
             recastAtMs = -1;
         }
     }

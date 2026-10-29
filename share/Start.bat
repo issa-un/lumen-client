@@ -19,7 +19,7 @@ set "JAVAW=%JAVA_HOME%\bin\javaw.exe"
 if defined JAVA_HOME if exist "%JAVAW%" goto run
 
 echo Could not find Java 25.
-echo Start Minecraft 26.1.2 once from the official launcher, or set JAVA_HOME to a Java 25 JDK.
+echo Start Minecraft 26.1.2, 26.2 or 26.3 once from the official launcher, or set JAVA_HOME to a Java 25 JDK.
 pause
 exit /b 1
 

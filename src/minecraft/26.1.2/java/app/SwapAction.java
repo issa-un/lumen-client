@@ -67,7 +67,7 @@ final class SwapAction {
                 phase = IDLE;
                 return;
             }
-            if (minecraft.screen != null) {
+            if (Mc.screen(minecraft) != null) {
                 cancel(minecraft);
                 MinecraftSpearDash.setStatus("Cancelled");
                 return;

@@ -41,7 +41,7 @@ final class AutoWeapon {
      */
     static boolean onAttackClick(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || anyAttack || player == null || minecraft.screen != null || !SpearSettings.combatAllowed(minecraft)
+        if (!enabled || anyAttack || player == null || Mc.screen(minecraft) != null || !SpearSettings.combatAllowed(minecraft)
                 || !(minecraft.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof LivingEntity target)) {
             return false;
         }
@@ -66,7 +66,7 @@ final class AutoWeapon {
             }
             AttackHook.markOwn(target.getId());
             game.gameMode.attack(game.player, target);
-            game.player.swing(InteractionHand.MAIN_HAND);
+            Mc.swingAttack(game.player, InteractionHand.MAIN_HAND);
             return true;
         }, AutoWeapon::finished);
         return true;
@@ -77,7 +77,7 @@ final class AutoWeapon {
      * Swap delay and sends the held attack after Hit delay.
      */
     static void runFromAttack(Minecraft minecraft, int weapon, ServerboundAttackPacket attack) {
-        if (ACTION.busy() || minecraft.player == null || minecraft.screen != null) {
+        if (ACTION.busy() || minecraft.player == null || Mc.screen(minecraft) != null) {
             AttackHook.resend(minecraft, attack);
             return;
         }
@@ -111,7 +111,7 @@ final class AutoWeapon {
      */
     static int weaponForAnyAttack(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || !anyAttack || player == null || minecraft.screen != null || ACTION.busy()
+        if (!enabled || !anyAttack || player == null || Mc.screen(minecraft) != null || ACTION.busy()
                 || !SpearSettings.combatAllowed(minecraft)) {
             return -1;
         }

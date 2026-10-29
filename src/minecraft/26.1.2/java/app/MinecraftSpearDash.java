@@ -146,7 +146,7 @@ final class MinecraftSpearDash {
         }
         LocalPlayer player = minecraft.player;
         long now = System.nanoTime() / 1_000_000;
-        if (player == null || minecraft.screen != null) {
+        if (player == null || Mc.screen(minecraft) != null) {
             cancel("Dash cancelled");
             return;
         }

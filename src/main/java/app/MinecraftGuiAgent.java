@@ -220,15 +220,36 @@ public final class MinecraftGuiAgent {
         if (!screenClass.isAssignableFrom(guiClass)) {
             throw new IllegalStateException("The GUI class is incompatible with this client.");
         }
+        // Hide other clients rewrites a game class, which needs the agent's Instrumentation.
+        try {
+            Class<?> hudFilter = Class.forName(guiClass.getPackageName() + ".HudFilter", true,
+                    guiClass.getClassLoader());
+            Method setInstrumentation = hudFilter.getDeclaredMethod("setInstrumentation", Instrumentation.class);
+            setInstrumentation.setAccessible(true);
+            setInstrumentation.invoke(null, instrumentation);
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+            // A build without it.
+        }
 
         Object minecraft = minecraftClass.getMethod("getInstance").invoke(null);
-        Method setScreen = minecraftClass.getMethod("setScreen", screenClass);
+        // setScreen is on Minecraft up to 26.1 and on minecraft.gui from 26.2.
+        Object screenOwner;
+        Method setScreen;
+        try {
+            setScreen = minecraftClass.getMethod("setScreen", screenClass);
+            screenOwner = minecraft;
+        } catch (NoSuchMethodException newer) {
+            screenOwner = minecraftClass.getField("gui").get(minecraft);
+            setScreen = screenOwner.getClass().getMethod("setScreen", screenClass);
+        }
         Method execute = minecraftClass.getMethod("execute", Runnable.class);
         CompletableFuture<Void> opened = new CompletableFuture<>();
         Class<?> finalGuiClass = guiClass;
+        Object finalOwner = screenOwner;
+        Method finalSetScreen = setScreen;
         execute.invoke(minecraft, (Runnable) () -> {
             try {
-                setScreen.invoke(minecraft, finalGuiClass.getConstructor().newInstance());
+                finalSetScreen.invoke(finalOwner, finalGuiClass.getConstructor().newInstance());
                 opened.complete(null);
             } catch (InvocationTargetException exception) {
                 opened.completeExceptionally(exception.getCause());

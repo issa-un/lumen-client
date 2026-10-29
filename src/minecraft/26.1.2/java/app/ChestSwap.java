@@ -32,7 +32,7 @@ final class ChestSwap {
     /** Runs from its bind; true if it swapped, so the press is used up. */
     static boolean activate(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!enabled || player == null || minecraft.gameMode == null || minecraft.screen != null) {
+        if (!enabled || player == null || minecraft.gameMode == null || Mc.screen(minecraft) != null) {
             return false;
         }
         if (ACTION.busy()) {

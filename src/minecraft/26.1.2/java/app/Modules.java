@@ -38,7 +38,6 @@ final class Modules {
 
     static List<Category> categories(Minecraft minecraft) {
         boolean hud = VelocityHud.isAvailable();
-        String server = SpearSettings.currentServer(minecraft);
         return List.of(
                 new Category("Combat", "C", 0xFFFF453A, List.of(
                         new Module("Spear Dash", "Swap, lunge and swap back on a key",
@@ -62,23 +61,17 @@ final class Modules {
                                 new Choice("Trigger", ShieldBreak::triggerLabel, ShieldBreak::toggleAnyAttack),
                                 new Choice("Axe hits", () -> ShieldBreak.axeHitsLabel(minecraft), ShieldBreak::cycleAxeHits),
                                 new Toggle("Mace follow-up", ShieldBreak::isMaceFollowUp, ShieldBreak::toggleMaceFollowUp),
-                                new Choice("Range", ShieldBreak::rangeLabel, ShieldBreak::cycleRange),
                                 new Slider("Chance", ShieldBreak.CHANCE),
                                 new Slider("Swap delay", ShieldBreak.SWAP_DELAY),
                                 new Slider("Hit delay", ShieldBreak.HIT_DELAY),
                                 new Slider("Between hits", ShieldBreak.BETWEEN_HITS),
                                 new Slider("Axe to mace", ShieldBreak.AXE_TO_MACE),
                                 new Slider("Swap back", ShieldBreak.SWAP_BACK))),
-                        new Module("Mace Swap", "The right mace for every hit",
-                                MaceSwap::isEnabled, MaceSwap::toggleEnabled, List.of(
-                                new Choice("Trigger", MaceSwap::triggerLabel, MaceSwap::toggleAnyAttack),
-                                new Choice("On ground", MaceSwap::groundModeLabel, MaceSwap::cycleGroundMode),
-                                new Choice("Dropping", () -> MaceSwap.isFallingDensity() ? "Density" : "Off",
-                                        MaceSwap::toggleFallingDensity),
-                                new Slider("Chance", MaceSwap.CHANCE),
-                                new Slider("Swap delay", MaceSwap.SWAP_DELAY),
-                                new Slider("Hit delay", MaceSwap.HIT_DELAY),
-                                new Slider("Swap back", MaceSwap.SWAP_BACK))),
+                        new Module("Hit", "Hits what you look at whenever the hit will count",
+                                Hit::isEnabled, Hit::toggleEnabled, List.of(
+                                new Slider("Chance", Hit.CHANCE))),
+                        new Module("Mace Swap", "Slams worth 3+ hearts go out with a mace",
+                                MaceSwap::isEnabled, MaceSwap::toggleEnabled, List.of()),
                         new Module("Auto Totem", "Keeps a totem in your offhand",
                                 AutoTotem::isEnabled, AutoTotem::toggleEnabled, List.of(
                                 new Choice("Mode", AutoTotem::modeLabel, AutoTotem::cycleMode),
@@ -102,6 +95,13 @@ final class Modules {
                                 new Slider("Swap delay", QuickThrow.SWAP_DELAY),
                                 new Slider("Throw delay", QuickThrow.THROW_DELAY),
                                 new Slider("Swap back", QuickThrow.SWAP_BACK))),
+                        new Module("Pearl Catch", "A wind charge meets your pearl mid-air",
+                                PearlCatch::isEnabled, PearlCatch::toggleEnabled, List.of(
+                                new Bind("Key", () -> bindLabel(PearlCatch.keyCode(), PearlCatch.mouseButton()),
+                                        PearlCatch::isAwaitingBinding, PearlCatch::awaitBinding),
+                                new Toggle("On right-click pearl", PearlCatch::isOnRightClick,
+                                        PearlCatch::toggleOnRightClick),
+                                new Choice("Timing", PearlCatch::timingLabel, PearlCatch::cycleTiming))),
                         new Module("Chest Swap", "Elytra or chestplate on a key",
                                 ChestSwap::isEnabled, ChestSwap::toggleEnabled, List.of(
                                 new Bind("Key", () -> bindLabel(ChestSwap.keyCode(), ChestSwap.mouseButton()),
@@ -138,20 +138,6 @@ final class Modules {
                         new Module("Auto Gapple", "A golden apple when health is low",
                                 AutoGapple::isEnabled, AutoGapple::toggleEnabled, List.of(
                                 new Choice("Health", AutoGapple::healthLabel, AutoGapple::cycleHealth))))),
-                new Category("Bedwars", "B", 0xFFBF5AF2, List.of(
-                        new Module("Clutch", "A block under you when knocked off",
-                                Clutch::isEnabled, Clutch::toggleEnabled, List.of(
-                                new Choice("When", Clutch::whenLabel, Clutch::cycleWhen))),
-                        new Module("Edge Sneak", "Crouches at edges while you bridge",
-                                EdgeSneak::isEnabled, EdgeSneak::toggleEnabled, List.of(
-                                new Toggle("Only holding blocks", EdgeSneak::isOnlyWithBlocks, EdgeSneak::toggleOnlyWithBlocks))),
-                        new Module("Chest Stealer", "Empties the chests you open",
-                                ChestStealer::isEnabled, ChestStealer::toggleEnabled, List.of(
-                                new Choice("Delay", () -> ChestStealer.delayMs() + " ms", ChestStealer::cycleDelay),
-                                new Toggle("Close when done", ChestStealer::isCloseWhenDone, ChestStealer::toggleCloseWhenDone))),
-                        new Module("Auto Armor", "Puts on better armor",
-                                AutoArmor::isEnabled, AutoArmor::toggleEnabled, List.of(
-                                new Toggle("From hotbar", AutoArmor::isFromHotbar, AutoArmor::toggleFromHotbar))))),
                 new Category("Utility", "T", 0xFF30B0C7, List.of(
                         new Module("Auto Tool", "The fastest tool while you mine",
                                 AutoTool::isEnabled, AutoTool::toggleEnabled, List.of(
@@ -194,14 +180,29 @@ final class Modules {
                                         VelocityHud::toggleIgnoreTeam),
                                 new Action(() -> friendLabel(minecraft), () -> toggleFriend(minecraft)),
                                 toggleKey(VelocityHud.TOGGLE_RADAR))),
+                        new Module("Hide other clients", "Hides other clients' HUD lists",
+                                HudFilter::isEnabled, HudFilter::toggleEnabled, hideRows()),
                         new Module("Landing", hud ? "Fall damage before you land" : "Needs Fabric API's HUD module",
                                 VelocityHud::isLandingOn, VelocityHud::toggleLanding, List.of(
-                                toggleKey(VelocityHud.TOGGLE_LANDING))))),
-                new Category("Server", "S", 0xFF8E8E93, List.of(
-                        new Module("Combat here", server,
-                                () -> SpearSettings.combatAllowed(minecraft), () -> SpearSettings.toggleCombatHere(minecraft),
-                                List.of(new Toggle("Own settings", () -> SpearSettings.hasOwnSettings(minecraft),
-                                        () -> SpearSettings.toggleOwnSettingsHere(minecraft)))))));
+                                toggleKey(VelocityHud.TOGGLE_LANDING))),
+                        new Module("Combat stats", hud ? "Stun slam data: ping, fall, shield ticks, breaks"
+                                : "Needs Fabric API's HUD module",
+                                CombatStats::isOn, CombatStats::toggle, List.of()))));
+    }
+
+    /** Hide other clients: a switch for each source seen drawing on the HUD (on = hidden). */
+    private static List<Row> hideRows() {
+        List<String> seen = HudFilter.seen();
+        if (seen.isEmpty()) {
+            return List.of(new Action(() -> HudFilter.isEnabled() ? "Nothing else has drawn yet"
+                    : "Turn on, then sources show here", () -> {}));
+        }
+        java.util.ArrayList<Row> rows = new java.util.ArrayList<>();
+        for (String source : seen) {
+            String label = "Hide " + (source.length() > 30 ? source.substring(0, 29) + "\u2026" : source);
+            rows.add(new Toggle(label, () -> HudFilter.isHidden(source), () -> HudFilter.toggleHidden(source)));
+        }
+        return rows;
     }
 
     /** A key that turns a HUD module on or off without opening the menu. */
@@ -235,6 +236,6 @@ final class Modules {
         if (keyCode < 0) {
             return "None";
         }
-        return InputConstants.Type.KEYSYM.getOrCreate(keyCode).getDisplayName().getString();
+        return Mc.keyboard().getOrCreate(keyCode).getDisplayName().getString();
     }
 }

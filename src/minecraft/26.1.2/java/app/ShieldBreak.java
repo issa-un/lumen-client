@@ -52,6 +52,11 @@ final class ShieldBreak {
     private static final long CONFIRM_MAX_MS = 600;
     // How long to watch for the shield going down before counting a break as missed.
     private static final long RESULT_WAIT_MS = 800;
+    // An extra axe hit waits your ping plus a server tick after the last one, so a shield
+    // that hit broke shows as down first. Hitting a shield that is already down would
+    // deal the axe's damage and leave the target's immunity at it, cutting the mace hit
+    // by that much.
+    private static final long CONFIRM_TICK_MS = 50;
     private static volatile boolean enabled;
     private static volatile int keyCode = 82; // R
     private static volatile int mouseButton = -1;
@@ -60,11 +65,12 @@ final class ShieldBreak {
     private static volatile boolean onAttackClick = true;
     private static volatile boolean anyAttack;
     private static volatile boolean awaitingBinding;
-    // Range: Normal is the axe's and mace's own 3 blocks; Extended reaches 4.5 blocks, past
-    // your crosshair. The server takes melee hits up to a weapon's reach + 3 blocks.
-    private static final String[] RANGES = {"Normal (3)", "4.5 blocks"};
-    private static final double EXTENDED_EXTRA = 1.5;
-    private static volatile int range;
+    // Reach follows the weapon in your hand: the axe and mace reach their own 3 blocks, and
+    // holding something that reaches further (a spear's 4.5) stretches the break to match,
+    // past your crosshair. The server takes melee hits up to a weapon's reach + 3 blocks.
+    private static final double BASE_REACH = 3;
+    // The stretch the press started with; your hand holds the axe and mace during it.
+    private static double pressExtra;
     // This press is a ranged one: no delays (render thread only).
     private static boolean instant;
     // Click -> axe selected, item selected -> its hit (axe and mace), axe hit -> next axe
@@ -94,15 +100,33 @@ final class ShieldBreak {
     private static int hitsDone;
     private static int hitsWanted;
     private static int lastHitTick;
+    private static long lastHitMs;
+    private static long confirmWaitMs;
+    // The press started while you were dropping, so the mace hit is a slam; once you land
+    // before it goes out, it is skipped (a mace right after a swap hits for almost nothing).
+    private static boolean slamWanted;
+    private static boolean landedEarly;
+    // Whether your client showed the target's shield fully up during the axe hits. Until
+    // then a shield that is not blocking is one still going up, not one that went down.
+    private static boolean seenUp;
     private static long startedMs;
     // The last finished break: not treated as blocking again at once, and watched to see
-    // whether its shield went down.
-    private static LivingEntity lastBroken;
-    private static long lastBrokenMs;
-    private static boolean sawShieldDrop;
+    // whether its shield went down. Volatile: Any attack reads them on the network thread.
+    private static volatile LivingEntity lastBroken;
+    private static volatile long lastBrokenMs;
+    private static volatile boolean sawShieldDrop;
     private static boolean watchingResult;
+    // Whether that shield has been seen up, and the soonest your hit could show it going
+    // down (half your ping, the server's answer on its way back).
+    private static boolean watchSeenUp;
+    private static long watchMinDownMs;
     private static int breaksTried;
     private static int breaksLanded;
+    // The last press for the Combat stats HUD (render thread only).
+    private static String lastPress = "-";
+    private static String lastResult = "-";
+    private static long lastPressMs;
+    private static boolean lastResultGood;
 
     private ShieldBreak() {}
 
@@ -130,22 +154,30 @@ final class ShieldBreak {
             MinecraftSpearDash.setStatus("No axe in hotbar");
             return false;
         }
-        if (!inRange(player, axe, blocking)) {
+        double extra = extraReach(player);
+        if (!inRange(player, axe, blocking, extra)) {
             MinecraftSpearDash.setStatus("Too far for the axe");
             return false;
         }
+        pressExtra = extra;
         // Past normal reach the hits only register when the axe, the mace and the swap back
         // all go out together, so a ranged break skips every delay.
         instant = !player.isWithinAttackRange(player.getInventory().getItem(axe), blocking.getBoundingBox(), 0);
         target = blocking;
         axeSlot = axe;
-        // Density for a slam, else Breach, else any mace: the same pick as Mace Swap.
+        // Only whether you have a mace; which one is picked at the mace step, once it is
+        // known whether that hit is a slam.
         maceSlot = maceFollowUp ? MaceSwap.bestMace(player) : -1;
         previousSlot = player.getInventory().getSelectedSlot();
         heldSlot = previousSlot;
         hitsDone = 0;
-        // Extra axe hits wait a game tick each, which a ranged break cannot.
-        hitsWanted = instant ? 1 : effectiveAxeHits(minecraft);
+        slamWanted = MaceSwap.isSlam(player);
+        // Extra axe hits wait a game tick each, which a ranged break cannot, and a slam
+        // cannot afford: one blocked axe hit already disables the shield.
+        hitsWanted = instant || slamWanted ? 1 : effectiveAxeHits(minecraft);
+        confirmWaitMs = pingMs(minecraft) + CONFIRM_TICK_MS;
+        landedEarly = false;
+        seenUp = false;
         maceHit = false;
         startedMs = nowMs();
         phase = SWAP;
@@ -160,13 +192,13 @@ final class ShieldBreak {
      * Clicks on anything that is not blocking toward you stay normal attacks.
      */
     static boolean handleAttackClick(Minecraft minecraft) {
-        if (!enabled || !onAttackClick || minecraft.player == null || minecraft.screen != null
+        if (!enabled || !onAttackClick || minecraft.player == null || Mc.screen(minecraft) != null
                 || !SpearSettings.combatAllowed(minecraft)) {
             return false;
         }
         // Any attack catches attack packets, but a click past your crosshair's reach sends
-        // none, so with Range on 4.5 blocks those clicks are taken here.
-        if (anyAttack && (range == 0 || minecraft.hitResult instanceof EntityHitResult)) {
+        // none, so while your weapon reaches further those clicks are taken here.
+        if (anyAttack && (extraReach(minecraft.player) == 0 || minecraft.hitResult instanceof EntityHitResult)) {
             return false;
         }
         if (target != null) {
@@ -181,7 +213,7 @@ final class ShieldBreak {
      * break every other attack is held back too, like extra clicks.
      */
     static boolean takesAnyAttack(Minecraft minecraft, LivingEntity entity) {
-        if (!enabled || !onAttackClick || !anyAttack || minecraft.screen != null) {
+        if (!enabled || !onAttackClick || !anyAttack || Mc.screen(minecraft) != null) {
             return false;
         }
         return target != null || wouldBreak(minecraft, entity);
@@ -205,7 +237,7 @@ final class ShieldBreak {
             return false;
         }
         int axe = findSlot(player, ShieldBreak::disablesShields);
-        return axe >= 0 && inRange(player, axe, entity);
+        return axe >= 0 && inRange(player, axe, entity, extraReach(player));
     }
 
     /**
@@ -218,12 +250,15 @@ final class ShieldBreak {
             return;
         }
         LocalPlayer player = minecraft.player;
-        if (player == null || minecraft.screen != null) {
+        if (player == null || Mc.screen(minecraft) != null) {
             abort(minecraft, "Shield break cancelled");
             return;
         }
         if (player.getInventory().getSelectedSlot() != heldSlot) {
             // You picked another slot mid-press; leave your choice alone.
+            SpearLog.log("shield break: stopped, hotbar moved to "
+                    + (player.getInventory().getSelectedSlot() + 1) + " mid-press on "
+                    + target.getName().getString() + " (" + (nowMs() - startedMs) + " ms)");
             target = null;
             MinecraftSpearDash.setStatus("Shield break stopped");
             return;
@@ -241,47 +276,84 @@ final class ShieldBreak {
             }
             switch (phase) {
                 case SWAP -> {
+                    // Still going up: an axe hit now reaches the server before the shield
+                    // blocks, so it only deals damage and disables nothing. Wait on your own
+                    // slot, so the swap, hits and swap back still go out together.
+                    if (!shieldUpForHit(minecraft, target)) {
+                        if (!target.isUsingItem() || !target.isAlive()) {
+                            abort(minecraft, "Shield lowered");
+                        } else if (now - startedMs > SEQUENCE_TIMEOUT_MS + SWAP_DELAY.high()) {
+                            abort(minecraft, "Shield never up");
+                        }
+                        return;
+                    }
+                    // Still immune from your last hit: the server drops the axe hit, so the
+                    // shield stays up. Wait that out too.
+                    if (immuneWhenHitArrives(minecraft, target)) {
+                        if (now - startedMs > SEQUENCE_TIMEOUT_MS + SWAP_DELAY.high()) {
+                            abort(minecraft, "Still immune");
+                        }
+                        return;
+                    }
                     select(minecraft, axeSlot);
                     phase = AXE;
                     dueMs = now + delay(HIT_DELAY);
                 }
                 case AXE -> {
+                    if (target.isBlocking()) {
+                        seenUp = true;
+                    }
                     if (hitsDone > 0 && player.tickCount <= lastHitTick) {
                         return; // the next axe hit goes in a later game tick
                     }
+                    if (hitsDone > 0 && hitsDone < hitsWanted
+                            && (target.isBlocking() || !seenUp && target.isUsingItem())
+                            && now - lastHitMs < confirmWaitMs) {
+                        return; // the last hit may have broken it; wait to see the shield drop
+                    }
                     boolean timedOut = now - startedMs > SEQUENCE_TIMEOUT_MS + SWAP_DELAY.high() + HIT_DELAY.high()
-                            + 2L * BETWEEN_HITS.high();
-                    boolean shieldDown = hitsDone > 0 && !target.isBlocking();
-                    if (timedOut || shieldDown || !target.isAlive() || !inRange(player, axeSlot, target)
+                            + 2L * BETWEEN_HITS.high() + 2L * confirmWaitMs;
+                    // A shield you saw up is down once it stops blocking; one never seen up
+                    // (the hit landed while it was still going up) once it is lowered.
+                    boolean shieldDown = hitsDone > 0 && (seenUp ? !target.isBlocking() : !target.isUsingItem());
+                    if (timedOut || shieldDown || !target.isAlive() || !inRange(player, axeSlot, target, pressExtra)
                             || hitsDone >= hitsWanted) {
                         if (hitsDone == 0) {
-                            abort(minecraft, "Target gone");
+                            abort(minecraft, timedOut ? "Timed out" : !target.isAlive() ? "Target gone" : "Out of range");
                             return;
                         }
                         phase = MACE_SWAP;
-                        dueMs = now + delay(AXE_TO_MACE);
+                        dueMs = now + maceDelay(AXE_TO_MACE, player);
                     } else {
                         axeHit(minecraft);
                         if (hitsDone < hitsWanted) {
                             dueMs = now + delay(BETWEEN_HITS);
                         } else {
                             phase = MACE_SWAP;
-                            dueMs = now + delay(AXE_TO_MACE);
+                            dueMs = now + maceDelay(AXE_TO_MACE, player);
                         }
                     }
                 }
                 case MACE_SWAP -> {
-                    if (maceSlot >= 0 && target.isAlive() && inRange(player, maceSlot, target)) {
+                    landedEarly = maceSlot >= 0 && slamWanted && !MaceSwap.isSlam(player);
+                    // Picked now: Density if you are dropping by this point, even if you
+                    // pressed on the ground.
+                    if (maceSlot >= 0) {
+                        maceSlot = MaceSwap.bestMace(player);
+                    }
+                    if (maceSlot >= 0 && !landedEarly && target.isAlive() && inRange(player, maceSlot, target, pressExtra)) {
                         select(minecraft, maceSlot);
                         phase = MACE_HIT;
-                        dueMs = now + delay(HIT_DELAY);
+                        dueMs = now + maceDelay(HIT_DELAY, player);
                     } else {
                         phase = BACK;
                         dueMs = now + delay(SWAP_BACK);
                     }
                 }
                 case MACE_HIT -> {
-                    if (target.isAlive() && inRange(player, maceSlot, target)) {
+                    landedEarly = slamWanted && !MaceSwap.isSlam(player);
+                    if (!landedEarly && target.isAlive() && inRange(player, maceSlot, target, pressExtra)) {
+                        MaceLog.attack(minecraft, target, maceSlot, previousSlot, "Shield Break follow-up");
                         hit(minecraft);
                         maceHit = true;
                     }
@@ -297,6 +369,7 @@ final class ShieldBreak {
         hit(minecraft);
         hitsDone++;
         lastHitTick = minecraft.player.tickCount;
+        lastHitMs = nowMs();
     }
 
     /** The swap back and the bookkeeping, once every hit is done. */
@@ -306,23 +379,40 @@ final class ShieldBreak {
         swapBack(minecraft);
         MinecraftInputController.guardSwitchBack(previousSlot, lastSlot);
         String axePart = hitsDone == 1 ? "Shield hit" : "Shield hit x" + hitsDone;
-        MinecraftSpearDash.setStatus(maceHit ? axePart + " + mace" : axePart);
+        MinecraftSpearDash.setStatus(maceHit ? axePart + " + mace"
+                : landedEarly ? axePart + ", landed before mace" : axePart);
         lastBroken = target;
         lastBrokenMs = nowMs();
         sawShieldDrop = false;
         watchingResult = true;
+        watchSeenUp = seenUp;
+        watchMinDownMs = pingMs(minecraft) / 2;
         breaksTried++;
         SpearLog.log("shield break: hotbar " + (previousSlot + 1) + " -> axe " + (axeSlot + 1)
-                + " x" + hitsDone + (maceHit ? " -> mace " + (maceSlot + 1) : "") + " -> back to "
+                + " x" + hitsDone + (seenUp ? "" : " (shield still going up)")
+                + (maceHit ? " -> mace " + (maceSlot + 1) + (slamWanted || MaceSwap.isSlam(player) ? " (slam)" : " (no fall)") : "")
+                + (landedEarly ? " (landed before mace)" : "") + " -> back to "
                 + (player.getInventory().getSelectedSlot() + 1) + " on " + target.getName().getString()
                 + " (" + (lastBrokenMs - startedMs) + " ms)");
+        lastPress = "axe x" + hitsDone + (seenUp ? "" : " (raising)")
+                + (maceHit ? " + " + (slamWanted ? "slam" : "mace") : landedEarly ? ", landed early" : "")
+                + ", " + (lastBrokenMs - startedMs) + " ms";
+        lastResult = "waiting...";
+        lastResultGood = false;
+        lastPressMs = lastBrokenMs;
         target = null;
     }
 
     private static void abort(Minecraft minecraft, String reason) {
-        if (minecraft.player != null) {
+        if (minecraft.player != null && heldSlot != previousSlot) {
             swapBack(minecraft);
         }
+        SpearLog.log("shield break: cancelled (" + reason + ") on " + target.getName().getString()
+                + " after " + (nowMs() - startedMs) + " ms, axe hits " + hitsDone);
+        lastPress = "cancelled after " + (nowMs() - startedMs) + " ms";
+        lastResult = reason;
+        lastResultGood = false;
+        lastPressMs = nowMs();
         target = null;
         MinecraftSpearDash.setStatus(reason);
     }
@@ -341,7 +431,7 @@ final class ShieldBreak {
     private static void hit(Minecraft minecraft) {
         AttackHook.markOwn(target.getId());
         minecraft.gameMode.attack(minecraft.player, target);
-        minecraft.player.swing(InteractionHand.MAIN_HAND);
+        Mc.swingAttack(minecraft.player, InteractionHand.MAIN_HAND);
     }
 
     /** A step's delay for this press: none for a ranged break. */
@@ -349,27 +439,65 @@ final class ShieldBreak {
         return instant ? 0 : num.pick();
     }
 
+    /** A delay on the way to the mace hit: none while you are dropping, so you slam before landing. */
+    private static long maceDelay(Num num, LocalPlayer player) {
+        return slamWanted || MaceSwap.isSlam(player) ? 0 : delay(num);
+    }
+
     private static long nowMs() {
         return System.nanoTime() / 1_000_000;
     }
 
-    /** Counts whether the last break's shield went down; your client sees it after your ping. */
+    /**
+     * Counts whether the last break's shield went down; your client sees it after your ping.
+     * Only a shield seen up that drops once your hit's answer can be back counts: a shield
+     * never seen up, or one down sooner than that, was not broken by this hit.
+     */
     private static void watchResult() {
         if (!watchingResult) {
             return;
         }
         long afterMs = nowMs() - lastBrokenMs;
-        if (!lastBroken.isBlocking()) {
-            watchingResult = false;
-            sawShieldDrop = true;
-            breaksLanded++;
-            MinecraftSpearDash.setStatus("Shield down (" + breaksLanded + "/" + breaksTried + ")");
-            SpearLog.log("shield break result: shield went down " + afterMs + " ms after the break");
-        } else if (afterMs > RESULT_WAIT_MS) {
-            watchingResult = false;
-            MinecraftSpearDash.setStatus("Shield stayed up (" + breaksLanded + "/" + breaksTried + ")");
-            SpearLog.log("shield break result: shield still up " + afterMs + " ms after the break");
+        if (lastBroken.isRemoved()) {
+            // Gone from your world: its last state is frozen, so it tells nothing.
+            missed("Target gone", "target left " + afterMs + " ms after the break, result unknown");
+            return;
         }
+        if (lastBroken.isBlocking()) {
+            watchSeenUp = true;
+            if (afterMs > RESULT_WAIT_MS) {
+                missed("Shield stayed up", "shield still up " + afterMs + " ms after the break");
+            }
+            return;
+        }
+        if (!watchSeenUp) {
+            // Still going up, or lowered before it was ever up: neither is a break.
+            if (!lastBroken.isUsingItem() || afterMs > RESULT_WAIT_MS) {
+                sawShieldDrop = true; // no old shield on your screen to wait out
+                missed("Shield never up", "shield never seen up (" + afterMs + " ms after the break)");
+            }
+            return;
+        }
+        sawShieldDrop = true;
+        if (afterMs < watchMinDownMs) {
+            missed("Shield lowered", "shield went down " + afterMs + " ms after the break,"
+                    + " before the hit could have reached it");
+            return;
+        }
+        watchingResult = false;
+        breaksLanded++;
+        lastResult = "shield down in " + afterMs + " ms";
+        lastResultGood = true;
+        MinecraftSpearDash.setStatus("Shield down (" + breaksLanded + "/" + breaksTried + ")");
+        SpearLog.log("shield break result: shield went down " + afterMs + " ms after the break");
+    }
+
+    private static void missed(String status, String logged) {
+        watchingResult = false;
+        lastResult = status.toLowerCase(java.util.Locale.ROOT);
+        lastResultGood = false;
+        MinecraftSpearDash.setStatus(status + " (" + breaksLanded + "/" + breaksTried + ")");
+        SpearLog.log("shield break result: " + logged);
     }
 
     /**
@@ -384,8 +512,9 @@ final class ShieldBreak {
         }
         LivingEntity entity = minecraft.hitResult instanceof EntityHitResult hit
                 && hit.getEntity() instanceof LivingEntity living ? living : null;
-        if (entity == null && range == 1) {
-            entity = farTarget(minecraft.player);
+        double extra = extraReach(minecraft.player);
+        if (entity == null && extra > 0) {
+            entity = farTarget(minecraft.player, extra);
         }
         return entity != null && blockingToward(minecraft, entity) ? entity : null;
     }
@@ -394,8 +523,8 @@ final class ShieldBreak {
      * With Range on 4.5 blocks: the player or mob along your view past your crosshair's
      * reach, up to 4.5 blocks and not through blocks.
      */
-    private static LivingEntity farTarget(LocalPlayer player) {
-        double reach = 3 + EXTENDED_EXTRA + 1; // a little past, the range test decides
+    private static LivingEntity farTarget(LocalPlayer player, double extra) {
+        double reach = BASE_REACH + extra + 1; // a little past, the range test decides
         Vec3 eye = player.getEyePosition();
         Vec3 end = eye.add(player.getViewVector(1.0F).scale(reach));
         HitResult block = player.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER,
@@ -419,7 +548,7 @@ final class ShieldBreak {
         if (!blockingWhenHitArrives(entity, pingMs)) {
             return false;
         }
-        if (entity == lastBroken && !sawShieldDrop && System.nanoTime() / 1_000_000 - lastBrokenMs
+        if (entity == lastBroken && !sawShieldDrop && nowMs() - lastBrokenMs
                 < Math.min(CONFIRM_MAX_MS, 2L * pingMs + CONFIRM_MARGIN_MS)) {
             return false; // your client still shows the shield the last break hit
         }
@@ -450,6 +579,21 @@ final class ShieldBreak {
         return blocks != null && entity.getTicksUsingItem() + pingTicks >= blocks.blockDelayTicks();
     }
 
+    /**
+     * Whether the first axe hit can go out now: the shield shows as up, or it is still going
+     * up but will have blocked for a full tick by the time the hit arrives. The press starts
+     * on blockingWhenHitArrives's rounder guess; this waits out the rest so the hit is not
+     * early.
+     */
+    private static boolean shieldUpForHit(Minecraft minecraft, LivingEntity entity) {
+        if (entity.isBlocking()) {
+            return true;
+        }
+        BlocksAttacks blocks = entity.isUsingItem() ? entity.getUseItem().get(DataComponents.BLOCKS_ATTACKS) : null;
+        int pingTicks = pingMs(minecraft) / 50;
+        return blocks != null && entity.getTicksUsingItem() + pingTicks - 1 >= blocks.blockDelayTicks();
+    }
+
     /** Your ping as the server reports it in the player list, or 0 if unknown. */
     static int pingMs(Minecraft minecraft) {
         if (minecraft.player == null || minecraft.getConnection() == null) {
@@ -471,6 +615,61 @@ final class ShieldBreak {
         return target != null;
     }
 
+    /** The press in progress, else the last one broken; for the Combat stats HUD. */
+    static LivingEntity recentTarget() {
+        return target != null ? target : lastBroken;
+    }
+
+    /**
+     * Whether a hit sent now reaches the server while the target is still immune from its
+     * last hurt (the first half second; LivingEntity.hurtServer drops any hit that does not
+     * beat the last one, and a blocked axe hit deals nothing). Your client counts that down
+     * as hurtTime, about your ping behind the server, and the hit takes the rest of the way
+     * there; a tick is kept spare.
+     */
+    static boolean immuneWhenHitArrives(Minecraft minecraft, LivingEntity entity) {
+        int pingTicks = pingMs(minecraft) / 50;
+        return entity.hurtTime > Math.max(0, pingTicks - 1);
+    }
+
+    /** The entity's shield as the HUD shows it: up, still going up (ticks of its delay), or none. */
+    static String shieldLabel(Minecraft minecraft, LivingEntity entity) {
+        if (entity.isBlocking()) {
+            return "UP";
+        }
+        BlocksAttacks blocks = entity.isUsingItem() ? entity.getUseItem().get(DataComponents.BLOCKS_ATTACKS) : null;
+        if (blocks == null) {
+            return "down";
+        }
+        return "raising " + entity.getTicksUsingItem() + "/" + blocks.blockDelayTicks() + "t"
+                + (shieldUpForHit(minecraft, entity) ? " (hit ok)" : "");
+    }
+
+    static int breaksTried() {
+        return breaksTried;
+    }
+
+    static int breaksLanded() {
+        return breaksLanded;
+    }
+
+    static String lastPress() {
+        return lastPress;
+    }
+
+    static String lastResult() {
+        return lastResult;
+    }
+
+    static boolean lastResultGood() {
+        return lastResultGood;
+    }
+
+    /** How long ago the last press finished, or -1 if none yet. */
+    static long lastPressAgoMs() {
+        return lastPressMs == 0 ? -1 : nowMs() - lastPressMs;
+    }
+
     static boolean hasAxe(Minecraft minecraft) {
         return minecraft.player != null && findSlot(minecraft.player, ShieldBreak::disablesShields) >= 0;
     }
@@ -480,9 +679,17 @@ final class ShieldBreak {
         return weapon != null && weapon.disableBlockingForSeconds() > 0;
     }
 
-    private static boolean inRange(LocalPlayer player, int slot, LivingEntity entity) {
-        return player.isWithinAttackRange(player.getInventory().getItem(slot), entity.getBoundingBox(),
-                range == 1 ? EXTENDED_EXTRA : 0);
+    private static boolean inRange(LocalPlayer player, int slot, LivingEntity entity, double extra) {
+        return player.isWithinAttackRange(player.getInventory().getItem(slot), entity.getBoundingBox(), extra);
+    }
+
+    /** How much further than the axe's 3 blocks the weapon in your hand reaches (a spear: 1.5). */
+    static double extraReach(LocalPlayer player) {
+        if (player == null) {
+            return 0;
+        }
+        float held = player.getAttackRangeWith(player.getMainHandItem()).effectiveMaxRange(player);
+        return Math.max(0, held - BASE_REACH);
     }
 
     private static int findSlot(LocalPlayer player, Predicate<ItemStack> wanted) {
@@ -563,22 +770,6 @@ final class ShieldBreak {
 
     static void toggleMaceFollowUp() {
         maceFollowUp = !maceFollowUp;
-    }
-
-    static int range() {
-        return range;
-    }
-
-    static String rangeLabel() {
-        return RANGES[range];
-    }
-
-    static void setRange(int newRange) {
-        range = Math.floorMod(newRange, RANGES.length);
-    }
-
-    static void cycleRange() {
-        range = (range + 1) % RANGES.length;
     }
 
     static int keyCode() {

@@ -64,7 +64,7 @@ final class WebEscape {
             finishIfDone(minecraft, player, now);
             return;
         }
-        if (!enabled || minecraft.screen != null || now < readyAtMs || !SpearSettings.combatAllowed(minecraft)) {
+        if (!enabled || Mc.screen(minecraft) != null || now < readyAtMs || !SpearSettings.combatAllowed(minecraft)) {
             return;
         }
         List<BlockPos> webs = websAround(minecraft, player);

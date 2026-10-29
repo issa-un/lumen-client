@@ -73,7 +73,7 @@ final class Utilities {
     }
 
     private static void updateWalk(Minecraft minecraft) {
-        boolean want = autoWalk && minecraft.player != null && minecraft.screen == null;
+        boolean want = autoWalk && minecraft.player != null && Mc.screen(minecraft) == null;
         if (want) {
             minecraft.options.keyUp.setDown(true);
             walking = true;
@@ -118,7 +118,7 @@ final class Utilities {
 
     /** A middle click: friends or unfriends the player you look at; true if it did. */
     static boolean middleClick(Minecraft minecraft) {
-        if (!middleClickFriend || minecraft.screen != null
+        if (!middleClickFriend || Mc.screen(minecraft) != null
                 || !(minecraft.hitResult instanceof EntityHitResult hit) || !(hit.getEntity() instanceof Player target)) {
             return false;
         }
@@ -132,7 +132,7 @@ final class Utilities {
     private static void updateSprint(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
         Options options = minecraft.options;
-        boolean want = autoSprint && player != null && minecraft.screen == null && !options.toggleSprint().get()
+        boolean want = autoSprint && player != null && Mc.screen(minecraft) == null && !options.toggleSprint().get()
                 && WTap.physicallyDown(minecraft, options.keyUp) && !player.isShiftKeyDown() && !player.isUsingItem()
                 && player.getFoodData().getFoodLevel() > 6;
         if (want) {
@@ -157,10 +157,10 @@ final class Utilities {
     }
 
     private static void updateZoom(Minecraft minecraft) {
-        boolean held = zoom && minecraft.screen == null && (zoomKey >= 0 || zoomMouse >= 0)
+        boolean held = zoom && Mc.screen(minecraft) == null && (zoomKey >= 0 || zoomMouse >= 0)
                 && (zoomMouse >= 0
                         ? GLFW.glfwGetMouseButton(minecraft.getWindow().handle(), zoomMouse) == GLFW.GLFW_PRESS
-                        : InputConstants.isKeyDown(minecraft.getWindow(), zoomKey));
+                        : Mc.isKeyDown(minecraft, zoomKey));
         if (held && savedFov == null) {
             savedFov = minecraft.options.fov().get();
             savedSensitivity = minecraft.options.sensitivity().get();
@@ -181,7 +181,7 @@ final class Utilities {
 
     private static void updateRespawn(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (!autoRespawn || player == null || !(minecraft.screen instanceof DeathScreen)) {
+        if (!autoRespawn || player == null || !(Mc.screen(minecraft) instanceof DeathScreen)) {
             deathSeenMs = -1;
             return;
         }
@@ -191,14 +191,14 @@ final class Utilities {
             String where = player.getBlockX() + " " + player.getBlockY() + " " + player.getBlockZ();
             SpearLog.log("auto respawn: died at " + where + " in " + minecraft.level.dimension().identifier());
             if (deathCoords) {
-                minecraft.gui.getChat().addClientSystemMessage(Component.literal("Died at " + where));
+                Mc.chat(minecraft).addClientSystemMessage(Component.literal("Died at " + where));
             }
             return;
         }
         // A moment on the death screen, so the death packet has been handled.
         if (now - deathSeenMs > 100) {
             player.respawn();
-            minecraft.setScreen(null);
+            Mc.setScreen(minecraft, null);
             deathSeenMs = -1;
         }
     }

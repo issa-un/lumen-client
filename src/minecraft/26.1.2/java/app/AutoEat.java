@@ -45,7 +45,7 @@ final class AutoEat {
             continueEating(minecraft, player, now);
             return;
         }
-        if (!enabled || minecraft.screen != null || now < readyAtMs || player.isUsingItem() || AutoGapple.isEating()
+        if (!enabled || Mc.screen(minecraft) != null || now < readyAtMs || player.isUsingItem() || AutoGapple.isEating()
                 || player.getFoodData().getFoodLevel() > HUNGER[hungerIndex] || player.getAbilities().instabuild) {
             return;
         }
@@ -75,7 +75,7 @@ final class AutoEat {
 
     private static void continueEating(Minecraft minecraft, LocalPlayer player, long now) {
         boolean eaten = player.getInventory().getItem(eatingSlot).getCount() < countBefore;
-        boolean interrupted = player.getInventory().getSelectedSlot() != eatingSlot || minecraft.screen != null;
+        boolean interrupted = player.getInventory().getSelectedSlot() != eatingSlot || Mc.screen(minecraft) != null;
         if (!eaten && !interrupted && now - startedMs < EAT_TIMEOUT_MS) {
             minecraft.options.keyUse.setDown(true);
             return;

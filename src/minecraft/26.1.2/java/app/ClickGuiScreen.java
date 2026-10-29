@@ -2,11 +2,9 @@ package app;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
 import net.minecraft.ChatFormatting;
@@ -19,18 +17,22 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * Lumen's menu, laid out like a macOS settings window: window buttons and a search field at
- * the top of a sidebar of categories, and the selected category's modules as a grouped list
- * on the right. Each module has a switch; clicking the rest of its row opens its settings
- * underneath (right-click does too). Settings are switches, choices (click to step through),
+ * Uranium's menu, in three panes like a macOS settings window: window buttons, a search field
+ * and the categories in a sidebar; the selected category's modules in the middle, each with
+ * a switch in its category's color; and the selected module's settings on the right. Click
+ * a module to show its settings, or its switch to turn it on or off; the server at the
+ * bottom of the sidebar turns combat on or off there (right-click: its own settings). Each
+ * pane scrolls on its own. Settings are switches, choices (click to step through),
  * keys (click, then press a key or mouse button; Esc cancels), buttons and sliders (drag;
  * a delay range has a min and a max knob; right-click puts the default back). Typing shows the
  * modules that match from every category. Drag the window by its top edge. Every change is
  * saved straight away (see SpearSettings).
  */
 public final class ClickGuiScreen extends Screen {
-    private static final int WIDTH = 440;
-    private static final int HEIGHT = 280;
+    private static final int WIDTH = 520;
+    private static final int HEIGHT = 300;
+    // The module list's width; the settings pane takes the rest.
+    private static final int LIST = 196;
     private static final int RADIUS = 10;
     private static final int TOP_BAR = 30;
     private static final int SIDEBAR = 122;
@@ -40,8 +42,9 @@ public final class ClickGuiScreen extends Screen {
     private static final int MARGIN = 12;
     private static final int CATEGORY_ROW = 20;
     // A slider's track starts this far into its row and stops this far before the value.
-    private static final int SLIDER_LEFT = 96;
-    private static final int SLIDER_VALUE = 70;
+    private static final int SLIDER_LEFT = 84;
+    private static final int SLIDER_VALUE = 52;
+    private static final int LABEL_INSET = 10;
     // macOS dark appearance.
     private static final int WINDOW = 0xF21C1C1E;
     private static final int SIDEBAR_COLOR = 0xF2262629;
@@ -65,7 +68,8 @@ public final class ClickGuiScreen extends Screen {
     private static int windowX = -1;
     private static int windowY = -1;
     private static int category;
-    private static final Set<String> EXPANDED = new HashSet<>();
+    // The module whose settings show on the right.
+    private static String selected;
     private static final Map<String, Float> SWITCHES = new HashMap<>();
     private final List<Hit> hits = new ArrayList<>();
     private final List<SliderHit> sliders = new ArrayList<>();
@@ -82,6 +86,8 @@ public final class ClickGuiScreen extends Screen {
             new Binder(WebTrap::isAwaitingBinding, WebTrap::bindKeyboard, WebTrap::bindMouse, WebTrap::cancelBinding),
             new Binder(QuickThrow::isAwaitingBinding, QuickThrow::bindKeyboard, QuickThrow::bindMouse,
                     QuickThrow::cancelBinding),
+            new Binder(PearlCatch::isAwaitingBinding, PearlCatch::bindKeyboard, PearlCatch::bindMouse,
+                    PearlCatch::cancelBinding),
             new Binder(ChestSwap::isAwaitingBinding, ChestSwap::bindKeyboard, ChestSwap::bindMouse,
                     ChestSwap::cancelBinding),
             new Binder(Utilities::isAwaitingZoomBinding, Utilities::bindZoomKeyboard, Utilities::bindZoomMouse,
@@ -95,6 +101,12 @@ public final class ClickGuiScreen extends Screen {
     private boolean searchFocused;
     private int scroll;
     private int maxScroll;
+    private int settingsScroll;
+    private int maxSettingsScroll;
+    // Where the settings pane starts this frame; scrolling left of it moves the list.
+    private int settingsX;
+    // The color of the category being shown, for switches and sliders.
+    private int accent = GREEN;
     private boolean dragging;
     private double dragOffsetX;
     private double dragOffsetY;
@@ -119,7 +131,7 @@ public final class ClickGuiScreen extends Screen {
     private record Binder(BooleanSupplier awaiting, IntConsumer key, IntConsumer mouse, Runnable cancel) {}
 
     public ClickGuiScreen() {
-        super(Component.literal("Lumen"));
+        super(Component.literal("Uranium"));
     }
 
     @Override
@@ -231,19 +243,19 @@ public final class ClickGuiScreen extends Screen {
 
         // Categories.
         int cy = sy + 26;
-        graphics.text(font, "Lumen", x + 12, cy - 6, TERTIARY, false);
+        graphics.text(font, "Uranium", x + 12, cy - 6, TERTIARY, false);
         cy += 6;
         for (int i = 0; i < categories.size(); i++) {
             Modules.Category entry = categories.get(i);
-            boolean selected = i == category && query.isEmpty();
-            boolean hovered = !selected && inside(mouseX, mouseY, x + 6, cy, x + SIDEBAR - 6, cy + CATEGORY_ROW);
-            if (selected || hovered) {
+            boolean current = i == category && query.isEmpty();
+            boolean hovered = !current && inside(mouseX, mouseY, x + 6, cy, x + SIDEBAR - 6, cy + CATEGORY_ROW);
+            if (current || hovered) {
                 roundRect(graphics, x + 6, cy, x + SIDEBAR - 6, cy + CATEGORY_ROW, 6,
-                        selected ? ACCENT : HOVER, true, true);
+                        current ? ACCENT : HOVER, true, true);
             }
             roundRect(graphics, x + 12, cy + 4, x + 24, cy + 16, 3, entry.color(), true, true);
             graphics.centeredText(font, entry.icon(), x + 18, cy + 6, 0xFFFFFFFF);
-            graphics.text(font, entry.name(), x + 30, cy + 6, selected ? 0xFFFFFFFF : TEXT_SOFT, false);
+            graphics.text(font, entry.name(), x + 30, cy + 6, current ? 0xFFFFFFFF : TEXT_SOFT, false);
             int on = 0;
             for (Modules.Module module : entry.modules()) {
                 on += module.on().getAsBoolean() ? 1 : 0;
@@ -251,7 +263,7 @@ public final class ClickGuiScreen extends Screen {
             if (on > 0) {
                 String count = String.valueOf(on);
                 graphics.text(font, count, x + SIDEBAR - 12 - font.width(count), cy + 6,
-                        selected ? 0xCCFFFFFF : TERTIARY, false);
+                        current ? 0xCCFFFFFF : TERTIARY, false);
             }
             int index = i;
             hit(x + 6, cy, x + SIDEBAR - 6, cy + CATEGORY_ROW, () -> {
@@ -259,6 +271,8 @@ public final class ClickGuiScreen extends Screen {
                 query = "";
                 searchFocused = false;
                 scroll = 0;
+                selected = null;
+                settingsScroll = 0;
             }, null);
             cy += CATEGORY_ROW + 2;
         }
@@ -269,14 +283,15 @@ public final class ClickGuiScreen extends Screen {
         roundRect(graphics, x + 10, fy + 6, x + 16, fy + 12, 3, combat ? GREEN : RED, true, true);
         String server = font.plainSubstrByWidth(SpearSettings.currentServer(minecraft), SIDEBAR - 34);
         graphics.text(font, server, x + 21, fy + 5, SECONDARY, false);
-        hit(x + 6, fy, x + SIDEBAR - 6, fy + 18, () -> SpearSettings.toggleCombatHere(minecraft), null);
+        hit(x + 6, fy, x + SIDEBAR - 6, fy + 18, () -> SpearSettings.toggleCombatHere(minecraft),
+                () -> SpearSettings.toggleOwnSettingsHere(minecraft));
     }
 
     private void drawContent(GuiGraphicsExtractor graphics, Minecraft minecraft, List<Modules.Category> categories,
             int x, int y, int w, int h, int mouseX, int mouseY, float frameSeconds) {
         boolean searching = !query.isEmpty();
         List<Modules.Module> modules = new ArrayList<>();
-        List<String> owners = new ArrayList<>();
+        List<Modules.Category> owners = new ArrayList<>();
         if (searching) {
             String needle = query.toLowerCase(Locale.ROOT);
             for (Modules.Category entry : categories) {
@@ -284,12 +299,25 @@ public final class ClickGuiScreen extends Screen {
                     if (module.name().toLowerCase(Locale.ROOT).contains(needle)
                             || module.about().toLowerCase(Locale.ROOT).contains(needle)) {
                         modules.add(module);
-                        owners.add(entry.name());
+                        owners.add(entry);
                     }
                 }
             }
         } else {
-            modules.addAll(categories.get(category).modules());
+            for (Modules.Module module : categories.get(category).modules()) {
+                modules.add(module);
+                owners.add(categories.get(category));
+            }
+        }
+        int shown = -1;
+        for (int i = 0; i < modules.size(); i++) {
+            if (modules.get(i).name().equals(selected)) {
+                shown = i;
+            }
+        }
+        if (shown < 0 && !modules.isEmpty()) {
+            shown = 0;
+            selected = modules.get(0).name();
         }
 
         // Title, large and bold, with the build on the right.
@@ -299,21 +327,32 @@ public final class ClickGuiScreen extends Screen {
         graphics.pose().scale(1.5F, 1.5F);
         graphics.text(font, Component.literal(title).withStyle(ChatFormatting.BOLD), 0, 0, TEXT, false);
         graphics.pose().popMatrix();
-        graphics.text(font, "Lumen " + VERSION, x + w - MARGIN - font.width("Lumen " + VERSION), y + 13, TERTIARY, false);
+        graphics.text(font, "Uranium " + VERSION, x + w - MARGIN - font.width("Uranium " + VERSION), y + 13, TERTIARY, false);
         hit(x, y, x + w, y + TOP_BAR, this::startDrag, null);
 
-        // The module list, clipped between the title and the footer.
         int viewTop = y + TOP_BAR + 4;
         int viewBottom = y + h - FOOTER;
-        int gx1 = x + MARGIN;
-        int gx2 = x + w - MARGIN;
-        int total = 0;
-        for (Modules.Module module : modules) {
-            total += MODULE_ROW + (EXPANDED.contains(module.name()) ? module.settings().size() * SETTING_ROW : 0);
+        settingsX = x + LIST;
+        drawModuleList(graphics, modules, owners, searching, x + MARGIN, x + LIST - 6, viewTop, viewBottom,
+                mouseX, mouseY, frameSeconds);
+        graphics.fill(x + LIST, viewTop, x + LIST + 1, viewBottom, SEPARATOR);
+        if (shown >= 0) {
+            accent = owners.get(shown).color();
+            drawSettingsPane(graphics, modules.get(shown), x + LIST + 8, x + w - MARGIN, viewTop, viewBottom,
+                    mouseX, mouseY, frameSeconds);
         }
+
+        drawFooter(graphics, minecraft, x, y + h - FOOTER, w, mouseX, mouseY);
+    }
+
+    /** The middle pane: one row per module, clipped and scrolled between the title and footer. */
+    private void drawModuleList(GuiGraphicsExtractor graphics, List<Modules.Module> modules,
+            List<Modules.Category> owners, boolean searching, int gx1, int gx2, int viewTop, int viewBottom,
+            int mouseX, int mouseY, float frameSeconds) {
+        int total = modules.size() * MODULE_ROW;
         maxScroll = Math.max(0, total + 8 - (viewBottom - viewTop));
         scroll = clamp(scroll, 0, maxScroll);
-        graphics.enableScissor(x, viewTop, x + w, viewBottom);
+        graphics.enableScissor(gx1 - MARGIN, viewTop, gx2 + 6, viewBottom);
         int rowY = viewTop + 2 - scroll;
         if (modules.isEmpty()) {
             graphics.centeredText(font, "No modules match \"" + query + "\"", (gx1 + gx2) / 2, viewTop + 30, SECONDARY);
@@ -321,64 +360,123 @@ public final class ClickGuiScreen extends Screen {
             roundRect(graphics, gx1, rowY, gx2, rowY + total, 8, GROUP, true, true);
         }
         for (int i = 0; i < modules.size(); i++) {
-            Modules.Module module = modules.get(i);
-            boolean last = i == modules.size() - 1;
-            boolean expanded = EXPANDED.contains(module.name());
-            boolean visible = rowY + MODULE_ROW > viewTop && rowY < viewBottom;
-            if (visible) {
-                drawModuleRow(graphics, module, searching ? owners.get(i) : null, gx1, rowY, gx2, last && !expanded,
-                        i == 0, mouseX, mouseY, viewTop, viewBottom, frameSeconds);
+            if (rowY + MODULE_ROW > viewTop && rowY < viewBottom) {
+                drawModuleRow(graphics, modules.get(i), owners.get(i), searching, gx1, rowY, gx2,
+                        i == modules.size() - 1, i == 0, mouseX, mouseY, viewTop, viewBottom, frameSeconds);
             }
             rowY += MODULE_ROW;
-            if (expanded) {
-                int settingsHeight = module.settings().size() * SETTING_ROW;
-                roundRect(graphics, gx1, rowY, gx2, rowY + settingsHeight, 8, GROUP_INSET, false, last);
-                for (int s = 0; s < module.settings().size(); s++) {
-                    if (rowY + SETTING_ROW > viewTop && rowY < viewBottom) {
-                        drawSettingRow(graphics, module, module.settings().get(s), gx1, rowY, gx2,
-                                s == module.settings().size() - 1, mouseX, mouseY, viewTop, viewBottom, frameSeconds);
-                    }
-                    rowY += SETTING_ROW;
-                }
-            }
         }
         graphics.disableScissor();
-        if (maxScroll > 0) {
-            int track = viewBottom - viewTop - 8;
-            int thumb = Math.max(16, track * (viewBottom - viewTop) / (total + 8));
-            int thumbY = viewTop + 4 + (track - thumb) * scroll / maxScroll;
-            roundRect(graphics, x + w - 5, thumbY, x + w - 2, thumbY + thumb, 1, 0x50FFFFFF, true, true);
-        }
-
-        drawFooter(graphics, minecraft, x, y + h - FOOTER, w, mouseX, mouseY);
+        scrollbar(graphics, gx2 + 2, viewTop, viewBottom, total, scroll, maxScroll);
     }
 
-    private void drawModuleRow(GuiGraphicsExtractor graphics, Modules.Module module, String owner, int x1, int y,
-            int x2, boolean roundBottom, boolean roundTop, int mouseX, int mouseY, int viewTop, int viewBottom,
-            float frameSeconds) {
-        boolean hasSettings = !module.settings().isEmpty();
-        boolean expanded = EXPANDED.contains(module.name());
-        int switchX = x2 - 12 - 26;
-        boolean overRow = inside(mouseX, mouseY, x1, y, x2, y + MODULE_ROW) && mouseY >= viewTop && mouseY < viewBottom;
-        if (overRow) {
-            roundRect(graphics, x1, y, x2, y + MODULE_ROW, 8, HOVER, roundTop, roundBottom);
-        }
-        graphics.text(font, module.name(), x1 + 12, y + 7, TEXT, false);
-        String about = owner == null ? module.about() : owner + "  ·  " + module.about();
-        graphics.text(font, font.plainSubstrByWidth(about, switchX - x1 - 34), x1 + 12, y + 18, SECONDARY, false);
-        if (hasSettings) {
-            chevron(graphics, switchX - 12, y + 13, expanded, overRow ? TEXT_SOFT : TERTIARY);
-        }
+    /** The right pane: the selected module's name, what it does, its switch and its settings. */
+    private void drawSettingsPane(GuiGraphicsExtractor graphics, Modules.Module module, int px1, int px2,
+            int viewTop, int viewBottom, int mouseX, int mouseY, float frameSeconds) {
+        int y = viewTop + 2;
+        graphics.text(font, Component.literal(font.plainSubstrByWidth(module.name(), px2 - px1 - 40))
+                .withStyle(ChatFormatting.BOLD), px1 + 2, y + 2, TEXT, false);
         boolean on = module.on().getAsBoolean();
-        drawSwitch(graphics, module.name(), switchX, y + 9, 26, 14, on, frameSeconds);
+        String state = on ? "On" : "Off";
+        int pillLeft = px2 - font.width(state) - 14;
+        boolean overPill = inside(mouseX, mouseY, pillLeft, y, px2, y + 13);
+        roundRect(graphics, pillLeft, y, px2, y + 13, 6, overPill ? PILL_HOVER : PILL, true, true);
+        graphics.text(font, state, pillLeft + 7, y + 3, on ? accent : SECONDARY, false);
+        hit(pillLeft, y, px2, y + 13, module.flip(), null);
+        y += 15;
+        // What it does, over up to two lines.
+        for (String line : wrap(module.about(), px2 - px1 - 4, 2)) {
+            graphics.text(font, line, px1 + 2, y, SECONDARY, false);
+            y += 10;
+        }
+        y += 4;
+
+        List<Modules.Row> settings = module.settings();
+        int top = y;
+        if (settings.isEmpty()) {
+            graphics.text(font, "Nothing to set", px1 + 2, y + 4, TERTIARY, false);
+            maxSettingsScroll = 0;
+            return;
+        }
+        int total = settings.size() * SETTING_ROW;
+        maxSettingsScroll = Math.max(0, total + 4 - (viewBottom - top));
+        settingsScroll = clamp(settingsScroll, 0, maxSettingsScroll);
+        graphics.enableScissor(px1, top, px2 + 6, viewBottom);
+        int rowY = top - settingsScroll;
+        roundRect(graphics, px1, rowY, px2, rowY + total, 8, GROUP, true, true);
+        for (int s = 0; s < settings.size(); s++) {
+            if (rowY + SETTING_ROW > top && rowY < viewBottom) {
+                drawSettingRow(graphics, module, settings.get(s), px1, rowY, px2, s == settings.size() - 1,
+                        mouseX, mouseY, top, viewBottom, frameSeconds);
+            }
+            rowY += SETTING_ROW;
+        }
+        graphics.disableScissor();
+        scrollbar(graphics, px2 + 2, top, viewBottom, total, settingsScroll, maxSettingsScroll);
+    }
+
+    private static void scrollbar(GuiGraphicsExtractor graphics, int x, int viewTop, int viewBottom, int total,
+            int scrolled, int max) {
+        if (max <= 0) {
+            return;
+        }
+        int track = viewBottom - viewTop - 8;
+        int thumb = Math.max(16, track * (viewBottom - viewTop) / (total + 8));
+        int thumbY = viewTop + 4 + (track - thumb) * scrolled / max;
+        roundRect(graphics, x, thumbY, x + 3, thumbY + thumb, 1, 0x50FFFFFF, true, true);
+    }
+
+    /** Splits text into lines that fit, at most this many (the last one cut short). */
+    private List<String> wrap(String text, int width, int maxLines) {
+        List<String> lines = new ArrayList<>();
+        String rest = text;
+        while (!rest.isEmpty() && lines.size() < maxLines) {
+            String line = font.plainSubstrByWidth(rest, width);
+            if (line.isEmpty()) {
+                break;
+            }
+            if (line.length() < rest.length() && lines.size() < maxLines - 1) {
+                int space = line.lastIndexOf(' ');
+                if (space > 0) {
+                    line = line.substring(0, space);
+                }
+            }
+            lines.add(line);
+            rest = rest.substring(line.length()).stripLeading();
+        }
+        return lines;
+    }
+
+    private void drawModuleRow(GuiGraphicsExtractor graphics, Modules.Module module, Modules.Category owner,
+            boolean searching, int x1, int y, int x2, boolean roundBottom, boolean roundTop, int mouseX, int mouseY,
+            int viewTop, int viewBottom, float frameSeconds) {
+        boolean chosen = module.name().equals(selected);
+        int switchX = x2 - 10 - 24;
+        boolean overRow = inside(mouseX, mouseY, x1, y, x2, y + MODULE_ROW) && mouseY >= viewTop && mouseY < viewBottom;
+        if (chosen || overRow) {
+            roundRect(graphics, x1, y, x2, y + MODULE_ROW, 8, chosen ? 0x22FFFFFF : HOVER, roundTop, roundBottom);
+        }
+        if (chosen) {
+            graphics.fill(x1 + 3, y + 8, x1 + 5, y + MODULE_ROW - 8, owner.color());
+        }
+        graphics.text(font, font.plainSubstrByWidth(module.name(), switchX - x1 - 16), x1 + 10, y + 7, TEXT, false);
+        String about = searching ? owner.name() + "  ·  " + module.about() : module.about();
+        graphics.text(font, font.plainSubstrByWidth(about, switchX - x1 - 16), x1 + 10, y + 18, SECONDARY, false);
+        drawSwitch(graphics, module.name(), switchX, y + 9, 24, 13, module.on().getAsBoolean(), owner.color(),
+                frameSeconds);
         if (!roundBottom) {
-            graphics.fill(x1 + 12, y + MODULE_ROW - 1, x2, y + MODULE_ROW, SEPARATOR);
+            graphics.fill(x1 + 10, y + MODULE_ROW - 1, x2, y + MODULE_ROW, SEPARATOR);
         }
         int top = Math.max(y, viewTop);
         int bottom = Math.min(y + MODULE_ROW, viewBottom);
-        Runnable expand = () -> toggleExpanded(module.name());
-        hit(switchX - 4, top, x2, bottom, module.flip(), hasSettings ? expand : null);
-        hit(x1, top, switchX - 4, bottom, hasSettings ? expand : module.flip(), hasSettings ? expand : null);
+        Runnable select = () -> {
+            if (!module.name().equals(selected)) {
+                selected = module.name();
+                settingsScroll = 0;
+            }
+        };
+        hit(switchX - 4, top, x2, bottom, module.flip(), module.flip());
+        hit(x1, top, switchX - 4, bottom, select, module.flip());
     }
 
     private void drawSettingRow(GuiGraphicsExtractor graphics, Modules.Module module, Modules.Row row, int x1, int y,
@@ -390,13 +488,13 @@ public final class ClickGuiScreen extends Screen {
         int right = x2 - 12;
         switch (row) {
             case Modules.Toggle toggle -> {
-                graphics.text(font, toggle.label(), x1 + 24, textY, TEXT_SOFT, false);
+                graphics.text(font, toggle.label(), x1 + LABEL_INSET, textY, TEXT_SOFT, false);
                 drawSwitch(graphics, module.name() + "/" + toggle.label(), right - 20, y + 5, 20, 11,
-                        toggle.on().getAsBoolean(), frameSeconds);
+                        toggle.on().getAsBoolean(), accent, frameSeconds);
                 hit(x1, top, x2, bottom, toggle.flip(), null);
             }
             case Modules.Choice choice -> {
-                graphics.text(font, choice.label(), x1 + 24, textY, TEXT_SOFT, false);
+                graphics.text(font, choice.label(), x1 + LABEL_INSET, textY, TEXT_SOFT, false);
                 String value = choice.value().get();
                 int valueX = right - 8 - font.width(value);
                 graphics.text(font, value, valueX, textY, over ? TEXT : SECONDARY, false);
@@ -404,7 +502,7 @@ public final class ClickGuiScreen extends Screen {
                 hit(x1, top, x2, bottom, choice.next(), null);
             }
             case Modules.Bind bind -> {
-                graphics.text(font, bind.label(), x1 + 24, textY, TEXT_SOFT, false);
+                graphics.text(font, bind.label(), x1 + LABEL_INSET, textY, TEXT_SOFT, false);
                 boolean waiting = bind.awaiting().getAsBoolean();
                 String value = waiting && !bind.value().get().startsWith("Press") ? "Press a key..." : bind.value().get();
                 int pillWidth = font.width(value) + 12;
@@ -416,13 +514,13 @@ public final class ClickGuiScreen extends Screen {
                 hit(x1, top, x2, bottom, bind.await(), null);
             }
             case Modules.Action action -> {
-                graphics.text(font, action.label().get(), x1 + 24, textY, over ? 0xFF409CFF : ACCENT, false);
+                graphics.text(font, action.label().get(), x1 + LABEL_INSET, textY, over ? 0xFF409CFF : ACCENT, false);
                 hit(x1, top, x2, bottom, action.run(), null);
             }
             case Modules.Slider slider -> {
                 Num num = slider.num();
                 boolean active = num == draggingNum;
-                graphics.text(font, slider.label(), x1 + 24, textY, TEXT_SOFT, false);
+                graphics.text(font, slider.label(), x1 + LABEL_INSET, textY, TEXT_SOFT, false);
                 String value = num.label();
                 graphics.text(font, value, right - font.width(value), textY, over || active ? TEXT : SECONDARY, false);
                 int trackX1 = x1 + SLIDER_LEFT;
@@ -432,7 +530,7 @@ public final class ClickGuiScreen extends Screen {
                     int lowX = trackX1 + (trackX2 - trackX1) * num.low() / num.limit;
                     int highX = trackX1 + (trackX2 - trackX1) * num.high() / num.limit;
                     roundRect(graphics, trackX1, trackY - 1, trackX2, trackY + 2, 1, SWITCH_OFF, true, true);
-                    roundRect(graphics, num.range ? lowX : trackX1, trackY - 1, highX, trackY + 2, 1, ACCENT, true, true);
+                    roundRect(graphics, num.range ? lowX : trackX1, trackY - 1, highX, trackY + 2, 1, accent, true, true);
                     if (num.range) {
                         knob(graphics, lowX, trackY, active && !draggingHigh);
                     }
@@ -444,7 +542,7 @@ public final class ClickGuiScreen extends Screen {
             }
         }
         if (!lastRow) {
-            graphics.fill(x1 + 24, y + SETTING_ROW - 1, x2, y + SETTING_ROW, SEPARATOR);
+            graphics.fill(x1 + LABEL_INSET, y + SETTING_ROW - 1, x2, y + SETTING_ROW, SEPARATOR);
         }
     }
 
@@ -457,7 +555,7 @@ public final class ClickGuiScreen extends Screen {
             onClose();
         });
         right = pill(graphics, "Edit HUD", right - 6, y + 5, TEXT, mouseX, mouseY,
-                () -> minecraft.setScreen(new HudEditorScreen()));
+                () -> Mc.setScreen(minecraft, new HudEditorScreen()));
         String status = font.plainSubstrByWidth(MinecraftSpearDash.status(), right - x - MARGIN - 8);
         graphics.text(font, status, x + MARGIN, y + 8, SECONDARY, false);
     }
@@ -475,7 +573,7 @@ public final class ClickGuiScreen extends Screen {
 
     /** An iOS switch whose knob slides over about 0.1 s. */
     private void drawSwitch(GuiGraphicsExtractor graphics, String key, int x, int y, int w, int h, boolean on,
-            float frameSeconds) {
+            int color, float frameSeconds) {
         float target = on ? 1 : 0;
         float position = SWITCHES.getOrDefault(key, target);
         position += (target - position) * Math.min(1, frameSeconds * 14);
@@ -483,7 +581,7 @@ public final class ClickGuiScreen extends Screen {
             position = target;
         }
         SWITCHES.put(key, position);
-        roundRect(graphics, x, y, x + w, y + h, h / 2, blend(SWITCH_OFF, GREEN, position), true, true);
+        roundRect(graphics, x, y, x + w, y + h, h / 2, blend(SWITCH_OFF, color, position), true, true);
         int knob = h - 4;
         int knobX = x + 2 + Math.round((w - knob - 4) * position);
         roundRect(graphics, knobX, y + 3, knobX + knob, y + 3 + knob, knob / 2, 0x40000000, true, true);
@@ -522,12 +620,6 @@ public final class ClickGuiScreen extends Screen {
                 graphics.fill(x - 1 + i, y - 3 + i, x + i, y - 2 + i, color);
                 graphics.fill(x - 1 + i, y + 1 - i, x + i, y + 2 - i, color);
             }
-        }
-    }
-
-    private void toggleExpanded(String module) {
-        if (!EXPANDED.remove(module)) {
-            EXPANDED.add(module);
         }
     }
 
@@ -622,7 +714,11 @@ public final class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        scroll = clamp(scroll - (int) Math.round(scrollY * 18), 0, maxScroll);
+        if (mouseX >= settingsX) {
+            settingsScroll = clamp(settingsScroll - (int) Math.round(scrollY * 18), 0, maxSettingsScroll);
+        } else {
+            scroll = clamp(scroll - (int) Math.round(scrollY * 18), 0, maxScroll);
+        }
         return true;
     }
 

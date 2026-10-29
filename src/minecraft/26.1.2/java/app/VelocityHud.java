@@ -95,12 +95,13 @@ final class VelocityHud {
     private static volatile boolean landingOn = true;
 
     // HUD pieces you can move in the HUD editor, as offsets from where they sit by default.
-    static final int ELEMENTS = 3;
+    static final int ELEMENTS = 4;
     static final int SPEED_RING = 0;
     static final int LOOK_ANGLE = 1;
     static final int LANDING = 2;
-    private static final String[] ELEMENT_KEYS = {"speed", "angle", "landing"};
-    private static final String[] ELEMENT_NAMES = {"Speed HUD", "Look angle", "Landing"};
+    static final int COMBAT_STATS = 3;
+    private static final String[] ELEMENT_KEYS = {"speed", "angle", "landing", "combatStats"};
+    private static final String[] ELEMENT_NAMES = {"Speed HUD", "Look angle", "Landing", "Combat stats"};
     private static final int[] OFFSET_X = new int[ELEMENTS];
     private static final int[] OFFSET_Y = new int[ELEMENTS];
 
@@ -151,7 +152,7 @@ final class VelocityHud {
         // HUD is not drawn (F1).
         MinecraftSpearDash.updateDash(minecraft, false);
         LocalPlayer player = minecraft.player;
-        if (player == null || minecraft.options.hideGui) {
+        if (player == null || Mc.hudHidden(minecraft)) {
             return;
         }
         float partialTick = deltaTracker.getGameTimeDeltaPartialTick(true);
@@ -164,6 +165,10 @@ final class VelocityHud {
         }
         if (landingOn) {
             drawLanding(graphics, minecraft, player);
+        }
+        if (CombatStats.isOn()) {
+            int[] panel = position(COMBAT_STATS, graphics.guiWidth(), graphics.guiHeight());
+            CombatStats.draw(graphics, minecraft, player, panel[0], panel[1]);
         }
         if (ShieldBreak.isEnabled() && ShieldBreak.blockingTarget(minecraft) != null) {
             boolean axe = ShieldBreak.hasAxe(minecraft);
@@ -517,13 +522,15 @@ final class VelocityHud {
     /**
      * Where a movable piece sits by default: the speed ring's center above the hotbar, the
      * look angle's left edge beside the hotbar (which sits on the bottom edge), and the
-     * landing line's center under the crosshair.
+     * landing line's center under the crosshair, and the Combat stats panel's top-left corner
+     * on the left edge, above the middle.
      */
     static int[] anchor(int element, int guiWidth, int guiHeight) {
         return switch (element) {
             case SPEED_RING -> new int[] {guiWidth / 2,
                     guiHeight - (speedHudHigh ? HIGH_CENTER_ABOVE_BOTTOM : LOW_CENTER_ABOVE_BOTTOM)};
             case LOOK_ANGLE -> new int[] {guiWidth / 2 + HOTBAR_HALF_WIDTH + ANGLE_GAP_FROM_HOTBAR, guiHeight - 15};
+            case COMBAT_STATS -> new int[] {6, guiHeight / 2 - 90};
             default -> new int[] {guiWidth / 2, guiHeight / 2 + LANDING_BELOW_CROSSHAIR};
         };
     }
