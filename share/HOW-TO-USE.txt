@@ -1,23 +1,81 @@
-SPEAR injector
+LUMEN — how to use it
+=====================
 
-Needs
-- Minecraft 26.1.2, 26.2 or 26.3 with Fabric Loader and Fabric API installed
-  (the same file works on all three; versions before 26.1 are not supported).
-- The official Minecraft Launcher (its Java is used); or JAVA_HOME set to a Java 25 JDK.
+WHAT YOU NEED
+- Minecraft 26.1.2, 26.2 or 26.3, running with Fabric Loader and Fabric API.
+  (One file works on all three. Older versions won't work.)
+- The official Minecraft Launcher. Lumen borrows its Java, so you don't
+  need to install anything else.
 
-Use
-1. Start Minecraft (Fabric 26.1.2, 26.2 or 26.3) and wait for the main menu.
+GETTING STARTED
+1. Start Minecraft and wait for the main menu.
 2. Double-click Start.bat.
-3. Pick the Minecraft process and click Open GUI.
-4. In game, Numpad 8 opens the menu. Left-click a module to turn it on,
-   right-click it for its settings.
+3. Pick your Minecraft from the list and click Open GUI.
+4. In the game, press Numpad 8 to open the menu.
+   - Left-click a module to turn it on or off.
+   - Right-click a module to see its settings.
 
-Settings are saved in .minecraft\config\spear-injector.properties.
-A log of what the modules did is in .minecraft\logs\spear-injector.log.
-To switch it off, click Unload in the menu or in the injector window.
+IMPORTANT: inject only ONCE each time you start Minecraft. Injecting again
+without restarting the game loads a second copy, and the two will fight
+each other (double hits, lag). Restart Minecraft first, then inject.
 
-Notes
-- Without Fabric API the modules still work; only the HUD tab (speed ring,
-  radar, landing) needs it.
-- Reach Swap uses a trick Mojang removed in 26.2, so on 26.2 and 26.3 it
-  does nothing useful.
+To turn everything off, click Unload in the menu or in the Lumen window.
+Your settings are saved automatically.
+
+
+WHAT EACH MODULE DOES
+--------------------
+
+COMBAT
+  Spear Dash      Swaps to your spear, lunges, and swaps back, on one key.
+  Shield Break    Axe through their shield, then a mace hit while it's down.
+                  Reaches as far as the weapon in your hand (4.5 with a spear).
+  Hit             Hits whatever you're looking at, but only when the hit will
+                  actually count. One setting: Chance.
+  Mace Swap       Pulls out your mace for slams from 4.5+ blocks. Smaller
+                  drops and normal hits keep your weapon, which hits harder.
+  Auto Totem      Keeps a totem in your offhand.
+  Auto Weapon     Switches to your best weapon when you hit holding a tool.
+  Reach Swap      Uses your spear's longer reach to hit players further away.
+  Quick Throw     Throws a pearl or wind charge on one key.
+  Pearl Catch     Throws your pearl and sends a wind charge to meet it in the
+                  air, so you teleport up. Works on a key or by right-clicking
+                  a pearl.
+  Chest Swap      Swaps between elytra and chestplate on one key.
+
+UHC
+  Web Escape      Gets you out of cobwebs and fire with water.
+  Web Trap        Webs the player you're looking at, on one key.
+  MLG Water       Places water under you before a hard landing.
+  W-Tap           Resets your sprint after every hit (more knockback).
+  Jump Reset      Jumps right as knockback hits you (less knockback).
+  Auto Gapple     Eats a golden apple when your health gets low.
+
+UTILITY
+  Auto Tool       Picks the fastest tool while you mine.
+  Auto Sprint     Sprints whenever you walk forward.
+  Auto Walk       Walks forward for you.
+  Auto Eat        Eats when you get hungry.
+  Auto Fish       Reels in when a fish bites and casts again.
+  Fullbright      Lights up caves and nights.
+  Zoom            Hold a key to zoom in.
+  Clear Weather   No rain or thunder on your screen.
+  Auto Respawn    Skips the death screen.
+  Hit Sound       A ding when your hit lands.
+  Middle Click Friend   Middle-click a player to add them as a friend.
+                  Friends are never hit or targeted.
+
+HUD
+  Speed HUD       A speed ring above your hotbar.
+  Radar           Shows nearby players around your crosshair.
+  Landing         Shows the fall damage you'll take before you land.
+  Combat stats    Your ping, fall, shield timing and shield break results.
+  Hide other clients   Hides the module lists other clients draw on screen.
+
+
+GOOD TO KNOW
+- No Fabric API? Everything still works except the HUD tab.
+- Reach Swap only works on 26.1.2. Mojang removed the trick it uses in 26.2.
+- Something didn't work? Every mace hit, dash, shield break and pearl catch
+  writes a line in .minecraft\logs\spear-injector.log explaining what
+  happened.
