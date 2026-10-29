@@ -8,7 +8,7 @@ A combat and utility client for Minecraft 26.1.2 – 26.3 (Fabric). It loads int
 2. Double-click **Lumen.bat** (or **Start.bat** in the shared zip), pick Minecraft and click **Open GUI**.
 3. In the game, press **Numpad 8**. Left-click a module to turn it on, right-click it for settings.
 
-> Inject once per game launch. To load a new version, restart Minecraft first.
+> Inject once per game launch. To load a new version, restart Minecraft first or Unload.
 
 ## What's inside
 
