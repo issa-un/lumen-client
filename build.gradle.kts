@@ -49,6 +49,8 @@ if (missingMinecraftFiles.isEmpty()) {
     dependencies.add("compileOnly", files(minecraftLibraryFiles))
     dependencies.add("compileOnly", zipTree(fabricApiJar).matching {
         include("META-INF/jars/fabric-rendering-v1-*.jar")
+        // Event, which the world drawing hook (Wheels) registers through.
+        include("META-INF/jars/fabric-api-base-*.jar")
     })
 }
 
@@ -143,14 +145,22 @@ tasks.jar {
     finalizedBy(deleteOldJars)
 }
 
-// A zip to hand to someone else: the jar, Start.bat (finds the Minecraft Launcher's Java 25)
-// and a short how-to. `gradle shareZip` writes build/distributions/SpearInjector.zip.
+// A zip to hand to someone else: the jar, its own Java 25 in runtime/ (so it works on a PC
+// where Start.bat finds no other Java), Start.bat and a short how-to.
+// `gradle shareZip` writes build/distributions/Lumen.zip. The Java is the Minecraft
+// Launcher's own (Microsoft Build of OpenJDK, GPLv2 with the Classpath Exception, its
+// licenses in runtime/legal); override with -PlumenRuntime=PATH to a Java 25 folder.
+val lumenRuntime = file(providers.gradleProperty("lumenRuntime")
+    .orElse(providers.gradleProperty("org.gradle.java.installations.paths")).get())
 tasks.register<Zip>("shareZip") {
-    archiveFileName.set("SpearInjector.zip")
+    archiveFileName.set("Lumen.zip")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
-    into("SpearInjector") {
-        from(tasks.jar) { rename { "spear-injector.jar" } }
+    into("Lumen") {
+        from(tasks.jar) { rename { "lumen.jar" } }
         from("share")
+        if (lumenRuntime.resolve("bin/javaw.exe").isFile) {
+            from(lumenRuntime) { into("runtime") }
+        }
     }
 }
 

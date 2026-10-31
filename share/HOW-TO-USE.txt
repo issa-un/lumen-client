@@ -32,6 +32,11 @@ COMBAT
                   Reaches as far as the weapon in your hand (4.5 with a spear).
   Hit             Hits whatever you're looking at, but only when the hit will
                   actually count. One setting: Chance.
+  Aim Helper      Hold Left Alt (change it, or pick Toggle / Always, in the
+                  menu) and your aim glides onto one player, with any item in
+                  your hand. Built from recordings of your own aim: it trails
+                  them, leaves the last few degrees to you and never snaps.
+                  Off on the ground unless Ground too is on.
   Mace Swap       Pulls out your mace for slams from 4.5+ blocks. Smaller
                   drops and normal hits keep your weapon, which hits harder.
   Auto Totem      Keeps a totem in your offhand.
@@ -46,6 +51,8 @@ COMBAT
 UHC
   Web Escape      Gets you out of cobwebs and fire with water.
   Web Trap        Webs the player you're looking at, on one key.
+  Wind Clutch     Throws a wind charge under you right before a fall that
+                  would leave you near death, so you take no fall damage.
   MLG Water       Places water under you before a hard landing.
   W-Tap           Resets your sprint after every hit (more knockback).
   Jump Reset      Jumps right as knockback hits you (less knockback).
@@ -70,12 +77,20 @@ HUD
   Radar           Shows nearby players around your crosshair.
   Landing         Shows the fall damage you'll take before you land.
   Combat stats    Your ping, fall, shield timing and shield break results.
+  Adapt           Learns how the player you're fighting plays and shows tips
+                  in the middle of your screen ("They always slam. Shield
+                  every drop." / "RUN. Book it."). Optional wheel that turns
+                  every time a player hits you.
+  Wheels          A wheel floating above players' heads that turns one notch
+                  every time they get hit. Choose who gets one and whether it
+                  replaces their helmet. Only you can see it.
   Hide other clients   Hides the module lists other clients draw on screen.
 
 
 GOOD TO KNOW
 - No Fabric API? Everything still works except the HUD tab.
-- Reach Swap only works on 26.1.2. Mojang removed the trick it uses in 26.2.
+- On 26.2 and 26.3: install Fabric Loader and Fabric API for that version.
+  Reach Swap and Wheels only work on 26.1.2 (they switch themselves off).
 - Something didn't work? Every mace hit, dash, shield break and pearl catch
   writes a line in .minecraft\logs\spear-injector.log explaining what
   happened.

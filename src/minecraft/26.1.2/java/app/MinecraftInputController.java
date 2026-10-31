@@ -165,9 +165,13 @@ final class MinecraftInputController {
         MaceSwap.reset();
         MaceLog.reset();
         Hit.reset();
+        AimHelper.reset();
+        Adapt.reset();
+        Wheels.reset(minecraft);
         WebEscape.reset();
         WebTrap.reset();
         MlgWater.reset();
+        WindClutch.reset();
         View.reset();
         AutoTotem.reset(minecraft);
         AutoWeapon.reset(minecraft);
@@ -242,6 +246,9 @@ final class MinecraftInputController {
                     && QuickThrow.activate(minecraft)) {
                 consumed = true;
             }
+            if (AimHelper.mouseButton() < 0 && key >= 0 && key == AimHelper.keyCode()) {
+                AimHelper.onKey(minecraft);
+            }
             if (!consumed && PearlCatch.mouseButton() < 0 && key >= 0 && key == PearlCatch.keyCode()
                     && PearlCatch.activate(minecraft)) {
                 consumed = true;
@@ -282,6 +289,9 @@ final class MinecraftInputController {
             }
             if (!consumed && button == QuickThrow.mouseButton() && QuickThrow.activate(minecraft)) {
                 consumed = true;
+            }
+            if (button == AimHelper.mouseButton()) {
+                AimHelper.onKey(minecraft);
             }
             if (!consumed && button == PearlCatch.mouseButton() && PearlCatch.activate(minecraft)) {
                 consumed = true;
@@ -433,9 +443,13 @@ final class MinecraftInputController {
         PearlCatch.update(minecraft);
         MaceLog.update(minecraft);
         Hit.update(minecraft);
+        AimHelper.update(minecraft);
+        Adapt.update(minecraft);
+        Wheels.update(minecraft);
         ChestSwap.update(minecraft);
         WebEscape.update(minecraft);
         MlgWater.update(minecraft);
+        WindClutch.update(minecraft);
         WTap.update(minecraft);
         JumpReset.update(minecraft);
         AutoTotem.update(minecraft);

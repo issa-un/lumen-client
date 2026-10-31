@@ -181,6 +181,7 @@ final class AttackHook {
             minecraft.execute(() -> ShieldBreak.runFromAttack(minecraft, target, attack));
             return true;
         }
+        ShieldBreak.explainSkip(minecraft, target, ShieldBreak.isAnyAttack() ? "any attack" : "attack packet");
         int held = MinecraftSpearDash.sentSlot(minecraft);
         int mace = MaceSwap.maceForAnyAttack(minecraft, target, held);
         if (mace >= 0) {

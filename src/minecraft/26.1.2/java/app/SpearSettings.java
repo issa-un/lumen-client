@@ -155,6 +155,7 @@ final class SpearSettings {
                 p.integer("webTrap.mouse", WebTrap.mouseButton()));
         WebTrap.setDrain(p.bool("webTrap.drain", WebTrap.isDrain()));
         MlgWater.setEnabled(p.bool("mlg.enabled", MlgWater.isEnabled()));
+        WindClutch.setEnabled(p.bool("windClutch.enabled", WindClutch.isEnabled()));
         AutoTotem.setEnabled(p.bool("autoTotem.enabled", AutoTotem.isEnabled()));
         AutoTotem.setMode(p.integer("autoTotem.mode", AutoTotem.mode()));
         p.num("autoTotem.reaction", AutoTotem.REACTION);
@@ -196,6 +197,17 @@ final class SpearSettings {
         PearlCatch.setOnRightClick(p.bool("pearlCatch.onRightClick", PearlCatch.isOnRightClick()));
         Hit.setEnabled(p.bool("hit.enabled", Hit.isEnabled()));
         p.num("hit.chance", Hit.CHANCE);
+        AimHelper.setEnabled(p.bool("aimHelper.enabled", AimHelper.isEnabled()));
+        p.num("aimHelper.strength", AimHelper.STRENGTH);
+        AimHelper.setGround(p.bool("aimHelper.ground", AimHelper.isGround()));
+        AimHelper.setKeyMode(p.integer("aimHelper.keyMode", AimHelper.keyMode()));
+        AimHelper.setBinding(p.integer("aimHelper.key", AimHelper.keyCode()), p.integer("aimHelper.mouse", AimHelper.mouseButton()));
+        Adapt.setEnabled(p.bool("adapt.enabled", Adapt.isEnabled()));
+        Adapt.setWheel(p.bool("adapt.wheel", Adapt.isWheel()));
+        Wheels.setEnabled(p.bool("wheels.enabled", Wheels.isEnabled()));
+        Wheels.setSpin(p.integer("wheels.spin", Wheels.spin()));
+        Wheels.setWho(p.integer("wheels.who", Wheels.who()));
+        Wheels.setHelmet(p.integer("wheels.helmet", Wheels.helmet()));
         PearlCatch.setTiming(p.integer("pearlCatch.timing", PearlCatch.timing()));
         PearlCatch.setBinding(p.integer("pearlCatch.key", PearlCatch.keyCode()),
                 p.integer("pearlCatch.mouse", PearlCatch.mouseButton()));
@@ -270,6 +282,7 @@ final class SpearSettings {
         put(file, prefix, "webTrap.mouse", WebTrap.mouseButton());
         put(file, prefix, "webTrap.drain", WebTrap.isDrain());
         put(file, prefix, "mlg.enabled", MlgWater.isEnabled());
+        put(file, prefix, "windClutch.enabled", WindClutch.isEnabled());
         put(file, prefix, "autoTotem.enabled", AutoTotem.isEnabled());
         put(file, prefix, "autoTotem.mode", AutoTotem.mode());
         putNum(file, prefix, "autoTotem.reaction", AutoTotem.REACTION);
@@ -311,6 +324,18 @@ final class SpearSettings {
         put(file, prefix, "pearlCatch.onRightClick", PearlCatch.isOnRightClick());
         put(file, prefix, "hit.enabled", Hit.isEnabled());
         putNum(file, prefix, "hit.chance", Hit.CHANCE);
+        put(file, prefix, "aimHelper.enabled", AimHelper.isEnabled());
+        putNum(file, prefix, "aimHelper.strength", AimHelper.STRENGTH);
+        put(file, prefix, "aimHelper.ground", AimHelper.isGround());
+        put(file, prefix, "aimHelper.keyMode", AimHelper.keyMode());
+        put(file, prefix, "aimHelper.key", AimHelper.keyCode());
+        put(file, prefix, "aimHelper.mouse", AimHelper.mouseButton());
+        put(file, prefix, "adapt.enabled", Adapt.isEnabled());
+        put(file, prefix, "adapt.wheel", Adapt.isWheel());
+        put(file, prefix, "wheels.enabled", Wheels.isEnabled());
+        put(file, prefix, "wheels.spin", Wheels.spin());
+        put(file, prefix, "wheels.who", Wheels.who());
+        put(file, prefix, "wheels.helmet", Wheels.helmet());
         put(file, prefix, "pearlCatch.timing", PearlCatch.timing());
         put(file, prefix, "pearlCatch.key", PearlCatch.keyCode());
         put(file, prefix, "pearlCatch.mouse", PearlCatch.mouseButton());

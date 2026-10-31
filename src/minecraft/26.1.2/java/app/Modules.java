@@ -70,6 +70,13 @@ final class Modules {
                         new Module("Hit", "Hits what you look at whenever the hit will count",
                                 Hit::isEnabled, Hit::toggleEnabled, List.of(
                                 new Slider("Chance", Hit.CHANCE))),
+                        new Module("Aim Helper", "Hold Alt in the air to glide your aim onto one player",
+                                AimHelper::isEnabled, AimHelper::toggleEnabled, List.of(
+                                new Bind("Key", () -> bindLabel(AimHelper.keyCode(), AimHelper.mouseButton()),
+                                        AimHelper::isAwaitingBinding, AimHelper::awaitBinding),
+                                new Choice("Key mode", AimHelper::keyModeLabel, AimHelper::cycleKeyMode),
+                                new Slider("Strength", AimHelper.STRENGTH),
+                                new Toggle("Ground too", AimHelper::isGround, AimHelper::toggleGround))),
                         new Module("Mace Swap", "Slams worth 3+ hearts go out with a mace",
                                 MaceSwap::isEnabled, MaceSwap::toggleEnabled, List.of()),
                         new Module("Auto Totem", "Keeps a totem in your offhand",
@@ -119,6 +126,8 @@ final class Modules {
                                 new Bind("Key", () -> bindLabel(WebTrap.keyCode(), WebTrap.mouseButton()),
                                         WebTrap::isAwaitingBinding, WebTrap::awaitBinding),
                                 new Toggle("Drain with lava", WebTrap::isDrain, WebTrap::toggleDrain))),
+                        new Module("Wind Clutch", "A wind charge under you before a fall that would nearly kill you",
+                                WindClutch::isEnabled, WindClutch::toggleEnabled, List.of()),
                         new Module("MLG Water", "Water down before a hard landing",
                                 MlgWater::isEnabled, MlgWater::toggleEnabled, List.of(
                                 new Choice("Min damage", MlgWater::minDamageLabel, MlgWater::cycleMinDamage),
@@ -180,6 +189,16 @@ final class Modules {
                                         VelocityHud::toggleIgnoreTeam),
                                 new Action(() -> friendLabel(minecraft), () -> toggleFriend(minecraft)),
                                 toggleKey(VelocityHud.TOGGLE_RADAR))),
+                        new Module("Adapt", hud ? "Learns how your opponent fights and coaches you live"
+                                : "Needs Fabric API's HUD module",
+                                Adapt::isEnabled, Adapt::toggleEnabled, List.of(
+                                new Toggle("Wheel", Adapt::isWheel, Adapt::toggleWheel))),
+                        new Module("Wheels", hud ? "A wheel above players' heads that turns when they get hit"
+                                : "Needs Fabric API's rendering module",
+                                Wheels::isEnabled, Wheels::toggleEnabled, List.of(
+                                new Choice("Spin", Wheels::spinLabel, Wheels::cycleSpin),
+                                new Choice("Who", Wheels::whoLabel, Wheels::cycleWho),
+                                new Choice("Helmet", Wheels::helmetLabel, Wheels::cycleHelmet))),
                         new Module("Hide other clients", "Hides other clients' HUD lists",
                                 HudFilter::isEnabled, HudFilter::toggleEnabled, hideRows()),
                         new Module("Landing", hud ? "Fall damage before you land" : "Needs Fabric API's HUD module",

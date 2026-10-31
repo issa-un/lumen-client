@@ -86,6 +86,8 @@ public final class ClickGuiScreen extends Screen {
             new Binder(WebTrap::isAwaitingBinding, WebTrap::bindKeyboard, WebTrap::bindMouse, WebTrap::cancelBinding),
             new Binder(QuickThrow::isAwaitingBinding, QuickThrow::bindKeyboard, QuickThrow::bindMouse,
                     QuickThrow::cancelBinding),
+            new Binder(AimHelper::isAwaitingBinding, AimHelper::bindKeyboard, AimHelper::bindMouse,
+                    AimHelper::cancelBinding),
             new Binder(PearlCatch::isAwaitingBinding, PearlCatch::bindKeyboard, PearlCatch::bindMouse,
                     PearlCatch::cancelBinding),
             new Binder(ChestSwap::isAwaitingBinding, ChestSwap::bindKeyboard, ChestSwap::bindMouse,

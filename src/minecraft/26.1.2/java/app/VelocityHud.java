@@ -151,6 +151,7 @@ final class VelocityHud {
         // Every frame, so a Flat lunge glide is smooth; the input loop covers it when the
         // HUD is not drawn (F1).
         MinecraftSpearDash.updateDash(minecraft, false);
+        AimHelper.update(minecraft);
         LocalPlayer player = minecraft.player;
         if (player == null || Mc.hudHidden(minecraft)) {
             return;
@@ -166,6 +167,7 @@ final class VelocityHud {
         if (landingOn) {
             drawLanding(graphics, minecraft, player);
         }
+        Adapt.draw(graphics, minecraft);
         if (CombatStats.isOn()) {
             int[] panel = position(COMBAT_STATS, graphics.guiWidth(), graphics.guiHeight());
             CombatStats.draw(graphics, minecraft, player, panel[0], panel[1]);

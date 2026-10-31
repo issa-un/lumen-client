@@ -12,13 +12,13 @@ A combat and utility client for Minecraft 26.1.2 – 26.3 (Fabric). It loads int
 
 ## What's inside
 
-**Combat**: Spear Dash, Shield Break, Hit, Mace Swap, Auto Totem, Auto Weapon, Reach Swap, Quick Throw, Pearl Catch, Chest Swap
+**Combat**: Spear Dash, Shield Break, Hit, Aim Helper, Mace Swap, Auto Totem, Auto Weapon, Reach Swap, Quick Throw, Pearl Catch, Chest Swap
 
-**UHC**: Web Escape, Web Trap, MLG Water, W-Tap, Jump Reset, Auto Gapple
+**UHC**: Web Escape, Web Trap, Wind Clutch, MLG Water, W-Tap, Jump Reset, Auto Gapple
 
 **Utility**: Auto Tool, Auto Sprint, Auto Walk, Auto Eat, Auto Fish, Fullbright, Zoom, Clear Weather, Auto Respawn, Hit Sound, Middle Click Friend
 
-**HUD**: Speed HUD, Radar, Landing, Combat stats, Hide other clients
+**HUD**: Speed HUD, Radar, Landing, Combat stats, Adapt, Wheels, Hide other clients
 
 Every module has a one-line description in the menu. Settings save automatically.
 

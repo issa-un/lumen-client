@@ -197,14 +197,23 @@ final class ShieldBreak {
             return false;
         }
         // Any attack catches attack packets, but a click past your crosshair's reach sends
-        // none, so while your weapon reaches further those clicks are taken here.
-        if (anyAttack && (extraReach(minecraft.player) == 0 || minecraft.hitResult instanceof EntityHitResult)) {
+        // none, so while your weapon reaches further those clicks are taken here. A spear
+        // never sends one at all (its jab is a different packet), so its clicks always are.
+        boolean spear = minecraft.player.getMainHandItem().has(DataComponents.PIERCING_WEAPON);
+        if (anyAttack && !spear
+                && (extraReach(minecraft.player) == 0 || minecraft.hitResult instanceof EntityHitResult)) {
             return false;
         }
         if (target != null) {
             return true; // extra clicks during a break would hit with whatever is selected
         }
-        return blockingTarget(minecraft) != null && CHANCE.roll() && activate(minecraft);
+        if (blockingTarget(minecraft) == null) {
+            if (minecraft.hitResult instanceof EntityHitResult hit && hit.getEntity() instanceof LivingEntity living) {
+                explainSkip(minecraft, living, "click");
+            }
+            return false;
+        }
+        return CHANCE.roll() && activate(minecraft);
     }
 
     /**
@@ -225,8 +234,65 @@ final class ShieldBreak {
             return; // an extra hit during a break, dropped like an extra click
         }
         if (!CHANCE.roll() || !activate(minecraft, blockingToward(minecraft, entity) ? entity : null)) {
+            SpearLog.log("shield break: held-back hit on " + entity.getName().getString()
+                    + " went out as a plain hit (" + MinecraftSpearDash.status() + ")");
             AttackHook.resend(minecraft, attack);
         }
+    }
+
+    /**
+     * Logs why an attack on someone holding a shield did not start a break, at most once a
+     * second per reason, so "nothing happens" can be traced in the log. Any thread.
+     */
+    static void explainSkip(Minecraft minecraft, LivingEntity entity, String via) {
+        LocalPlayer player = minecraft.player;
+        if (player == null || !entity.isUsingItem()) {
+            return;
+        }
+        BlocksAttacks blocks = entity.getUseItem().get(DataComponents.BLOCKS_ATTACKS);
+        if (blocks == null) {
+            return; // not a shield
+        }
+        String reason;
+        if (!enabled) {
+            reason = "Shield Break is off";
+        } else if (!SpearSettings.combatAllowed(minecraft)) {
+            reason = "combat modules are off on this server";
+        } else if (!onAttackClick) {
+            reason = "On attack click is off, so only the bind starts a break";
+        } else if (!blockingWhenHitArrives(entity, pingMs(minecraft))) {
+            reason = "shield still going up (" + entity.getTicksUsingItem() + "/" + blocks.blockDelayTicks() + " ticks)";
+        } else if (entity == lastBroken && !sawShieldDrop) {
+            reason = "just broke this one, waiting for your screen to catch up";
+        } else if (!facingYou(minecraft, entity)) {
+            reason = "their shield faces away from you";
+        } else if (findSlot(player, ShieldBreak::disablesShields) < 0) {
+            reason = "no axe in your hotbar";
+        } else if (!inRange(player, findSlot(player, ShieldBreak::disablesShields), entity, extraReach(player))) {
+            reason = String.format(java.util.Locale.ROOT, "too far for the axe (%.1f blocks)", player.distanceTo(entity));
+        } else if (target != null) {
+            reason = "a break is already running";
+        } else {
+            reason = "it should have started (" + via + ")";
+        }
+        long now = nowMs();
+        if (!reason.equals(lastSkipReason) || now - lastSkipMs > 1000) {
+            lastSkipReason = reason;
+            lastSkipMs = now;
+            SpearLog.log("shield break: skipped " + entity.getName().getString() + " via " + via + ": " + reason);
+        }
+    }
+
+    private static volatile String lastSkipReason = "";
+    private static volatile long lastSkipMs;
+
+    /** Whether you stand within the shield's blocking angle (see blockingToward). */
+    private static boolean facingYou(Minecraft minecraft, LivingEntity entity) {
+        double headYaw = Math.toRadians(entity.getYHeadRot());
+        Vec3 facing = new Vec3(-Math.sin(headYaw), 0, Math.cos(headYaw));
+        Vec3 offset = minecraft.player.position().subtract(entity.position());
+        Vec3 toAttacker = new Vec3(offset.x, 0, offset.z).normalize();
+        return Math.acos(Math.max(-1, Math.min(1, facing.dot(toAttacker)))) <= BLOCKING_ANGLE;
     }
 
     /** Whether an attack on the entity would start a shield break: blocking, axe in reach. */
